@@ -1,0 +1,1 @@
+"""Local MADE deployment dashboard."""

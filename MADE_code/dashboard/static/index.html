@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MADE · Deployment Console</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-lockup">
+          <div class="brand-mark">M</div>
+          <div>
+            <div class="brand-name">MADE</div>
+            <div class="brand-subtitle">Model Deployment Engine</div>
+          </div>
+        </div>
+
+        <div class="sidebar-section-title">运行记录</div>
+        <div id="run-list" class="run-list" aria-live="polite"></div>
+
+        <div class="sidebar-footer">
+          <div class="runtime-chip"><span class="status-dot online"></span> Local runtime</div>
+          <div class="muted small">只读监控台 · 每 3 秒刷新</div>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <div class="eyebrow">DEPLOYMENT WORKSPACE</div>
+            <h1 id="run-title">正在读取运行记录</h1>
+          </div>
+          <div class="topbar-actions">
+            <div id="provider-badge" class="badge neutral">Provider</div>
+            <div id="runtime-badge" class="badge neutral">Runtime</div>
+            <button id="refresh-button" class="ghost-button" type="button">刷新</button>
+          </div>
+        </header>
+
+        <section class="summary-row">
+          <div class="summary-card accent-card">
+            <div class="summary-label">当前阶段</div>
+            <div id="current-phase" class="summary-value">—</div>
+            <div id="current-status" class="summary-meta">—</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">LLM 调用</div>
+            <div id="llm-calls" class="summary-value tabular">0</div>
+            <div id="llm-tokens" class="summary-meta">0 tokens</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">协调干预</div>
+            <div id="interventions" class="summary-value tabular">0</div>
+            <div id="gate-policy" class="summary-meta">consistency gate</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">容器状态</div>
+            <div id="container-status" class="summary-value">—</div>
+            <div id="container-image" class="summary-meta">—</div>
+          </div>
+        </section>
+
+        <section class="panel pipeline-panel">
+          <div class="panel-heading">
+            <div>
+              <div class="eyebrow">ORCHESTRATION</div>
+              <h2>部署流水线</h2>
+            </div>
+            <div class="legend">
+              <span><i class="legend-dot completed"></i>完成</span>
+              <span><i class="legend-dot running"></i>运行中</span>
+              <span><i class="legend-dot partial"></i>部分完成</span>
+              <span><i class="legend-dot not_started"></i>未开始</span>
+            </div>
+          </div>
+          <div id="pipeline" class="pipeline" aria-label="MADE deployment phases"></div>
+        </section>
+
+        <div class="content-grid">
+          <section class="panel state-panel">
+            <div class="panel-heading compact-heading">
+              <div>
+                <div class="eyebrow">SHARED STATE</div>
+                <h2>共享状态账本</h2>
+              </div>
+              <div id="state-count" class="count-label">0 variables</div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>变量</th>
+                    <th>阶段</th>
+                    <th>值预览</th>
+                    <th>来源</th>
+                  </tr>
+                </thead>
+                <tbody id="state-table"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel phase-panel">
+            <div class="panel-heading compact-heading">
+              <div>
+                <div class="eyebrow">PHASE DETAIL</div>
+                <h2 id="phase-detail-title">阶段详情</h2>
+              </div>
+              <div id="phase-detail-status" class="status-pill neutral">—</div>
+            </div>
+            <div id="phase-detail" class="phase-detail empty-state">点击上方阶段查看 required outputs、当前产物和执行统计。</div>
+          </section>
+        </div>
+
+        <div class="content-grid bottom-grid">
+          <section class="panel timeline-panel">
+            <div class="panel-heading compact-heading">
+              <div>
+                <div class="eyebrow">EXECUTION TRACE</div>
+                <h2>执行时间线</h2>
+              </div>
+              <select id="event-filter" class="select-control" aria-label="事件筛选">
+                <option value="all">全部事件</option>
+                <option value="llm_call">LLM 调用</option>
+                <option value="step_end">工具步骤</option>
+                <option value="gate_decision">Gate 决策</option>
+                <option value="variable_stored">状态产出</option>
+                <option value="phase_end">阶段结束</option>
+              </select>
+            </div>
+            <div id="timeline" class="timeline" aria-live="polite"></div>
+          </section>
+
+          <section class="panel coordination-panel">
+            <div class="panel-heading compact-heading">
+              <div>
+                <div class="eyebrow">COORDINATION</div>
+                <h2>一致性门控</h2>
+              </div>
+              <div id="coordination-mode" class="status-pill neutral">consistency</div>
+            </div>
+            <div class="gate-grid" id="gate-grid"></div>
+            <div class="coordination-note">状态判断来自 required outputs；产物存在不等于模型质量已验证。</div>
+          </section>
+        </div>
+
+        <footer class="page-footer">
+          <span>MADE local deployment console</span>
+          <span id="last-updated">—</span>
+        </footer>
+      </main>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

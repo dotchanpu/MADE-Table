@@ -56,6 +56,29 @@ random_gate_p = global_config.get("agent").get("random_gate_p", 0.15)
 ablation_seed = global_config.get("agent").get("ablation_seed", 0)
 _gate_rng = random.Random(ablation_seed)
 
+
+def _dashboard_value_summary(value: Any) -> str:
+    """Return a bounded, secret-safe value preview for dashboard events.
+
+    The pipeline's shared store can contain paths, nested observations, and
+    generated code.  The dashboard only needs a compact audit hint; it should
+    never receive a full prompt, generated file, or credential.
+    """
+    if value is None:
+        return "null"
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return "dict(keys={})".format(", ".join(str(k) for k in list(value)[:12]))
+    if isinstance(value, (list, tuple, set)):
+        return "{}(len={})".format(type(value).__name__, len(value))
+    text = str(value)
+    for marker in ("sk-", "api_key", "apikey", "authorization", "bearer"):
+        if marker.lower() in text.lower():
+            return "[redacted]"
+    text = " ".join(text.split())
+    return text if len(text) <= 240 else text[:237] + "..."
+
 PHASE = {
     "repoingest": RepoIngest,
     "weightresolve": WeightResolve,
@@ -563,6 +586,15 @@ def execute_phase(phase_name: str, phase_manager: PhaseManager, backend: str, pm
                     if storage == "temporary":
                         em_board.append(f"successfully run {tool_name}.")
                         tmp_variable_store.write(variable_name, value)
+                        if logger:
+                            logger.log_event(
+                                "variable_stored",
+                                variable=variable_name,
+                                storage="temporary",
+                                producer_tool=tool_name,
+                                value_type=type(value).__name__,
+                                value_summary=_dashboard_value_summary(value),
+                            )
                         if judge_store_variable(value):
                             arguments_board.append(_truncate_entry({variable_name: value}))
                             arguments_board.append("\n")
@@ -576,6 +608,15 @@ def execute_phase(phase_name: str, phase_manager: PhaseManager, backend: str, pm
                         em_board.append(f"successfully run {tool_name}.")
                         variable_store.write(variable_name, value)
                         phase_observation[variable_name] = value
+                        if logger:
+                            logger.log_event(
+                                "variable_stored",
+                                variable=variable_name,
+                                storage="permanent",
+                                producer_tool=tool_name,
+                                value_type=type(value).__name__,
+                                value_summary=_dashboard_value_summary(value),
+                            )
                         if judge_store_variable(value):
                             arguments_board.append(_truncate_entry({variable_name: value}))
                             arguments_board.append("\n")

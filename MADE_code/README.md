@@ -140,3 +140,16 @@ re-ingesting the repo, re-resolving weights, or rebuilding the image.
 duration, optional logprobs), plus `gate_decision` and `gate_stats` events for
 the coordination mechanism — enough to reconstruct cost and intervention
 statistics offline.
+
+## Local dashboard
+
+MADE includes a read-only local deployment console that reads the run logs,
+shared-state checkpoint, phase ledger, and coordination events:
+
+```bash
+PYTHONPATH=MADE_code .venv/bin/python -m dashboard.app
+```
+
+Open <http://127.0.0.1:8787>. The dashboard refreshes automatically and does
+not send prompts or API credentials to the browser. Set
+`MADE_DASHBOARD_LOG_ROOT` to point it at another log directory.
