@@ -17,6 +17,14 @@
           </div>
         </div>
 
+        <div class="sidebar-section-title">展示页面</div>
+        <nav id="page-nav" class="page-nav" aria-label="展示页面">
+          <button class="nav-item active" data-page="overview" type="button"><span>01</span>总览</button>
+          <button class="nav-item" data-page="state" type="button"><span>02</span>共享状态</button>
+          <button class="nav-item" data-page="coordination" type="button"><span>03</span>智能体协作</button>
+          <button class="nav-item" data-page="service" type="button"><span>04</span>服务与测试</button>
+        </nav>
+
         <div class="sidebar-section-title">运行记录</div>
         <div id="run-list" class="run-list" aria-live="polite"></div>
 
@@ -39,7 +47,7 @@
           </div>
         </header>
 
-        <section class="summary-row">
+        <section class="summary-row" id="summary-row">
           <div class="summary-card accent-card">
             <div class="summary-label">当前阶段</div>
             <div id="current-phase" class="summary-value">—</div>
@@ -62,6 +70,7 @@
           </div>
         </section>
 
+        <section class="page-view" data-view="overview">
         <section class="panel pipeline-panel">
           <div class="panel-heading">
             <div>
@@ -78,6 +87,32 @@
           <div id="pipeline" class="pipeline" aria-label="MADE deployment phases"></div>
         </section>
 
+        <div class="content-grid">
+          <section class="panel phase-panel">
+            <div class="panel-heading compact-heading">
+              <div>
+                <div class="eyebrow">CURRENT FOCUS</div>
+                <h2 id="overview-phase-title">当前阶段</h2>
+              </div>
+              <div id="overview-phase-status" class="status-pill neutral">—</div>
+            </div>
+            <div id="overview-phase-detail" class="phase-detail empty-state">正在读取阶段状态。</div>
+          </section>
+
+          <section class="panel coordination-panel">
+            <div class="panel-heading compact-heading">
+              <div>
+                <div class="eyebrow">LATEST SIGNALS</div>
+                <h2>最近运行信号</h2>
+              </div>
+              <div id="overview-event-count" class="count-label">0 events</div>
+            </div>
+            <div id="overview-signals" class="signal-list"></div>
+          </section>
+        </div>
+        </section>
+
+        <section class="page-view" data-view="state" hidden>
         <div class="content-grid">
           <section class="panel state-panel">
             <div class="panel-heading compact-heading">
@@ -114,6 +149,24 @@
           </section>
         </div>
 
+        <section class="panel ledger-panel">
+          <div class="panel-heading compact-heading">
+            <div>
+              <div class="eyebrow">PHASE LEDGER</div>
+              <h2>阶段产物账本</h2>
+            </div>
+            <div class="count-label">required outputs</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>阶段</th><th>状态</th><th>已产出</th><th>缺失产物</th></tr></thead>
+              <tbody id="phase-ledger"></tbody>
+            </table>
+          </div>
+        </section>
+        </section>
+
+        <section class="page-view" data-view="coordination" hidden>
         <div class="content-grid bottom-grid">
           <section class="panel timeline-panel">
             <div class="panel-heading compact-heading">
@@ -145,6 +198,52 @@
             <div class="coordination-note">状态判断来自 required outputs；产物存在不等于模型质量已验证。</div>
           </section>
         </div>
+
+        <div class="content-grid coordination-detail-grid">
+          <section class="panel">
+            <div class="panel-heading compact-heading">
+              <div><div class="eyebrow">ACTOR ACTIVITY</div><h2>角色活动</h2></div>
+            </div>
+            <div id="actor-summary" class="actor-summary"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading compact-heading">
+              <div><div class="eyebrow">INTERVENTION TRACE</div><h2>干预说明</h2></div>
+            </div>
+            <div id="intervention-summary" class="empty-state">暂无干预记录。</div>
+          </section>
+        </div>
+        </section>
+
+        <section class="page-view" data-view="service" hidden>
+        <div class="content-grid service-grid">
+          <section class="panel">
+            <div class="panel-heading compact-heading">
+              <div><div class="eyebrow">SERVICE DELIVERY</div><h2>服务运行态</h2></div>
+              <div id="service-status-pill" class="status-pill neutral">—</div>
+            </div>
+            <div id="service-detail" class="detail-list"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading compact-heading">
+              <div><div class="eyebrow">TEST EVIDENCE</div><h2>测试与交付</h2></div>
+              <div id="evaluation-status-pill" class="status-pill neutral">—</div>
+            </div>
+            <div id="evaluation-detail" class="detail-list"></div>
+          </section>
+        </div>
+        <section class="panel api-contract-panel">
+          <div class="panel-heading compact-heading">
+            <div><div class="eyebrow">API CONTRACT</div><h2>服务接口与推理链</h2></div>
+          </div>
+          <div class="api-contract-grid">
+            <div class="api-contract-item"><code>GET /</code><span>健康检查 / 服务说明</span></div>
+            <div class="api-contract-item"><code>POST /predict_text</code><span>文本输入推理</span></div>
+            <div class="api-contract-item"><code>POST /predict</code><span>结构化输入推理</span></div>
+            <div class="api-contract-item pipeline-contract"><span>load_model</span><b>→</b><span>preprocess</span><b>→</b><span>inference</span><b>→</b><span>postprocess</span></div>
+          </div>
+        </section>
+        </section>
 
         <footer class="page-footer">
           <span>MADE local deployment console</span>

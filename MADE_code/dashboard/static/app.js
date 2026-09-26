@@ -17,6 +17,7 @@ const phaseDescriptions = {
 let selectedRunId = null;
 let dashboardData = null;
 let selectedPhase = "repoingest";
+let currentPage = "overview";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -98,29 +99,37 @@ function renderPipeline() {
   });
 }
 
-function renderPhaseDetail() {
-  const phase = phaseByName(selectedPhase);
-  document.getElementById("phase-detail-title").textContent = phaseLabels[selectedPhase] || selectedPhase;
-  const status = document.getElementById("phase-detail-status");
-  status.className = `status-pill ${statusClass(phase.status)}`;
-  status.textContent = formatStatus(phase.status);
-
+function phaseDetailMarkup(phase) {
   const present = phase.present_outputs || [];
   const missing = phase.missing_outputs || [];
   const outputRows = [
     ...present.map((key) => `<div class="output-row present"><span class="output-check">✓</span><code>${escapeHtml(key)}</code></div>`),
     ...missing.map((key) => `<div class="output-row missing"><span class="output-check">·</span><code>${escapeHtml(key)}</code></div>`),
   ].join("");
-  document.getElementById("phase-detail").className = "phase-detail";
-  document.getElementById("phase-detail").innerHTML = `
+  return `
     <div class="detail-list">
-      <div class="detail-row"><span class="detail-key">阶段目标</span><span class="detail-value">${escapeHtml(phaseDescriptions[selectedPhase] || "—")}</span></div>
+      <div class="detail-row"><span class="detail-key">阶段目标</span><span class="detail-value">${escapeHtml(phaseDescriptions[phase.phase] || "—")}</span></div>
       <div class="detail-row"><span class="detail-key">已产出</span><span class="detail-value">${present.length} 项</span></div>
       <div class="detail-row"><span class="detail-key">缺失产物</span><span class="detail-value">${missing.length} 项</span></div>
     </div>
     <div class="eyebrow" style="margin-top:18px">REQUIRED OUTPUTS</div>
     <div class="output-list">${outputRows || '<div class="muted small">暂无 required outputs 记录</div>'}</div>
   `;
+}
+
+function renderPhaseDetail() {
+  const phase = phaseByName(selectedPhase);
+  document.getElementById("phase-detail-title").textContent = phaseLabels[selectedPhase] || selectedPhase;
+  const status = document.getElementById("phase-detail-status");
+  status.className = `status-pill ${statusClass(phase.status)}`;
+  status.textContent = formatStatus(phase.status);
+  document.getElementById("phase-detail").className = "phase-detail";
+  document.getElementById("phase-detail").innerHTML = phaseDetailMarkup(phase);
+  document.getElementById("overview-phase-title").textContent = phaseLabels[selectedPhase] || selectedPhase;
+  const overviewStatus = document.getElementById("overview-phase-status");
+  overviewStatus.className = `status-pill ${statusClass(phase.status)}`;
+  overviewStatus.textContent = formatStatus(phase.status);
+  document.getElementById("overview-phase-detail").innerHTML = phaseDetailMarkup(phase);
 }
 
 function renderState() {
@@ -137,6 +146,16 @@ function renderState() {
     <td>${escapeHtml(row.value || "—")}</td>
     <td>${escapeHtml(row.producer_tool || row.storage || "checkpoint")}</td>
   </tr>`).join("");
+}
+
+function renderPhaseLedger() {
+  const body = document.getElementById("phase-ledger");
+  body.innerHTML = (dashboardData?.phases || []).map((phase) => `<tr>
+    <td>${escapeHtml(phaseLabels[phase.phase] || phase.phase)}</td>
+    <td><span class="status-pill ${statusClass(phase.status)}">${escapeHtml(formatStatus(phase.status))}</span></td>
+    <td>${escapeHtml((phase.present_outputs || []).join(", ") || "—")}</td>
+    <td>${escapeHtml((phase.missing_outputs || []).join(", ") || "—")}</td>
+  </tr>`).join("") || '<tr><td colspan="4" class="muted">暂无阶段账本。</td></tr>';
 }
 
 function eventTitle(event) {
@@ -220,15 +239,77 @@ function renderCoordination() {
     <div class="gate-label">${label}</div>
     <div class="gate-value tabular">${compactNumber(stats[key] || (key === "interventions" ? dashboardData?.coordination?.interventions : 0))}</div>
   </div>`).join("");
+
+  const events = dashboardData?.events || [];
+  const actorCounts = {};
+  events.forEach((event) => {
+    const actor = event.actor || (event.event === "gate_decision" ? "ConsistencyGate" : "system");
+    actorCounts[actor] = (actorCounts[actor] || 0) + 1;
+  });
+  document.getElementById("actor-summary").innerHTML = Object.entries(actorCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([actor, count]) => `<div class="actor-row"><span>${escapeHtml(actor)}</span><strong class="tabular">${count}</strong></div>`)
+    .join("") || '<div class="empty-state">暂无角色活动。</div>';
+
+  const interventions = events.filter((event) => event.event === "gate_decision" && event.intervene);
+  document.getElementById("intervention-summary").innerHTML = interventions.length
+    ? interventions.slice(-6).reverse().map((event) => `<div class="intervention-row"><strong>${escapeHtml(event.proposed_tool || "tool")}</strong><span>${escapeHtml((event.fired || []).join(", ") || "触发门控")}</span></div>`).join("")
+    : "暂无干预记录，当前所有提议均通过一致性门控。";
+}
+
+function renderOverview() {
+  const events = (dashboardData?.events || []).slice(-6).reverse();
+  document.getElementById("overview-event-count").textContent = `${(dashboardData?.events || []).length} events`;
+  document.getElementById("overview-signals").innerHTML = events.length
+    ? events.map((event) => `<div class="signal-row"><span class="signal-dot"></span><div><strong>${escapeHtml(eventTitle(event))}</strong><div class="signal-meta">${escapeHtml(eventMeta(event))}</div></div></div>`).join("")
+    : '<div class="empty-state">暂无运行信号。</div>';
+}
+
+function detailRow(label, value) {
+  return `<div class="detail-row"><span class="detail-key">${escapeHtml(label)}</span><span class="detail-value">${escapeHtml(value || "—")}</span></div>`;
+}
+
+function renderService() {
+  const service = dashboardData?.service || {};
+  const evaluation = dashboardData?.evaluation || {};
+  const serviceStatus = service.container_status || "not_started";
+  const evaluationStatus = evaluation.status || "not_started";
+  const servicePill = document.getElementById("service-status-pill");
+  const evaluationPill = document.getElementById("evaluation-status-pill");
+  servicePill.className = `status-pill ${statusClass(serviceStatus === "running" ? "running" : "neutral")}`;
+  servicePill.textContent = serviceStatus === "running" ? "运行中" : (serviceStatus || "未启动");
+  evaluationPill.className = `status-pill ${statusClass(evaluationStatus)}`;
+  evaluationPill.textContent = formatStatus(evaluationStatus);
+  document.getElementById("service-detail").innerHTML = [
+    detailRow("容器状态", service.container_status),
+    detailRow("镜像", service.image_name),
+    detailRow("容器名称", service.container_name),
+    detailRow("容器 ID", service.container_id),
+    detailRow("端口映射", service.runtime_port_mapping),
+    detailRow("API PID", service.api_pid),
+    detailRow("API 文档", service.api_documentation_path),
+  ].join("");
+  const expected = evaluation.expected_files || [];
+  const actual = evaluation.actual_files || [];
+  document.getElementById("evaluation-detail").innerHTML = [
+    detailRow("测试目录", evaluation.test_file_dir),
+    detailRow("参考输出文件", expected.join(", ") || "未发现"),
+    detailRow("实际输出文件", actual.join(", ") || "尚未生成"),
+    detailRow("证据状态", evaluation.status === "not_started" ? "尚未进入 ServiceDelivery" : evaluation.status),
+  ].join("");
 }
 
 function renderAll() {
   renderSummary();
   renderPipeline();
   renderState();
+  renderPhaseLedger();
   renderPhaseDetail();
   renderTimeline();
   renderCoordination();
+  renderOverview();
+  renderService();
 }
 
 async function loadRuns() {
@@ -270,7 +351,22 @@ async function refresh() {
   }
 }
 
+function setPage(page, updateHash = true) {
+  const validPages = ["overview", "state", "coordination", "service"];
+  currentPage = validPages.includes(page) ? page : "overview";
+  document.querySelectorAll(".page-view").forEach((view) => {
+    view.hidden = view.dataset.view !== currentPage;
+  });
+  document.querySelectorAll(".nav-item").forEach((item) => {
+    item.classList.toggle("active", item.dataset.page === currentPage);
+  });
+  if (updateHash && window.location.hash !== `#/${currentPage}`) window.location.hash = `/${currentPage}`;
+}
+
 document.getElementById("refresh-button").addEventListener("click", refresh);
 document.getElementById("event-filter").addEventListener("change", renderTimeline);
+document.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => setPage(item.dataset.page)));
+window.addEventListener("hashchange", () => setPage(window.location.hash.replace(/^#\//, ""), false));
+setPage(window.location.hash.replace(/^#\//, ""), false);
 refresh();
 setInterval(refresh, 3000);

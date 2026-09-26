@@ -29,6 +29,11 @@ button { color: inherit; }
 .brand-subtitle { color: var(--muted); font-size: 11px; margin-top: 3px; }
 .sidebar-section-title, .eyebrow { color: var(--muted); font-size: 10px; letter-spacing: .15em; text-transform: uppercase; font-weight: 700; }
 .sidebar-section-title { padding: 0 8px 10px; }
+.page-nav { display: grid; gap: 5px; margin: 0 0 24px; }
+.nav-item { display: flex; align-items: center; gap: 10px; width: 100%; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--muted); padding: 9px 10px; text-align: left; cursor: pointer; font-size: 12px; }
+.nav-item span { color: #5e6f8e; font-size: 10px; font-variant-numeric: tabular-nums; }
+.nav-item:hover, .nav-item.active { border-color: var(--line); background: var(--panel-2); color: var(--text); }
+.nav-item.active span { color: var(--blue); }
 .run-list { display: grid; gap: 6px; }
 .run-item { width: 100%; border: 1px solid transparent; background: transparent; text-align: left; padding: 11px 10px; border-radius: 10px; cursor: pointer; }
 .run-item:hover, .run-item.active { background: var(--panel-2); border-color: var(--line); }
@@ -115,6 +120,27 @@ td:last-child { color: var(--blue); white-space: nowrap; }
 .gate-label { color: var(--muted); font-size: 11px; }
 .gate-value { font-size: 20px; font-weight: 700; margin-top: 7px; }
 .coordination-note { font-size: 11px; line-height: 1.6; margin-top: 16px; }
+.page-view[hidden] { display: none; }
+.ledger-panel, .api-contract-panel { margin-bottom: 16px; }
+.signal-list, .actor-summary { display: grid; gap: 10px; }
+.signal-row { display: flex; gap: 9px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid rgba(38, 53, 81, .65); }
+.signal-row:last-child { border-bottom: 0; }
+.signal-dot { flex: 0 0 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--blue); margin-top: 5px; box-shadow: 0 0 10px rgba(108, 156, 255, .6); }
+.signal-row strong { display: block; font-size: 12px; font-weight: 650; }
+.signal-meta { color: var(--muted); font-size: 11px; line-height: 1.5; margin-top: 3px; }
+.actor-row, .intervention-row { display: flex; justify-content: space-between; gap: 14px; align-items: center; border-bottom: 1px solid rgba(38, 53, 81, .65); padding: 9px 0; font-size: 12px; }
+.actor-row:last-child, .intervention-row:last-child { border-bottom: 0; }
+.actor-row strong { color: var(--blue); }
+.intervention-row { align-items: flex-start; flex-direction: column; gap: 3px; }
+.intervention-row strong { color: var(--amber); }
+.intervention-row span { color: var(--muted); font-size: 11px; }
+.api-contract-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.api-contract-item { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line); background: rgba(21, 31, 53, .6); border-radius: 9px; padding: 13px; min-height: 66px; }
+.api-contract-item code { color: var(--cyan); font-size: 12px; }
+.api-contract-item span { color: var(--muted); font-size: 11px; }
+.api-contract-item.pipeline-contract { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: center; gap: 12px; min-height: 50px; }
+.api-contract-item.pipeline-contract span { color: var(--text); }
+.api-contract-item.pipeline-contract b { color: var(--purple); }
 .status-pill.completed { color: var(--green); background: rgba(97, 208, 149, .12); border-color: rgba(97, 208, 149, .32); }
 .status-pill.running { color: var(--blue); background: rgba(108, 156, 255, .12); border-color: rgba(108, 156, 255, .32); }
 .status-pill.partial, .status-pill.checkpointed { color: var(--amber); background: rgba(239, 184, 102, .12); border-color: rgba(239, 184, 102, .32); }
@@ -151,4 +177,6 @@ td:last-child { color: var(--blue); white-space: nowrap; }
   .parallel-lane { grid-column: auto !important; }
   .phase-node { min-height: 92px; }
   .page-footer { gap: 12px; align-items: flex-start; flex-direction: column; }
+  .api-contract-grid { grid-template-columns: 1fr; }
+  .api-contract-item.pipeline-contract { grid-column: auto; flex-wrap: wrap; justify-content: flex-start; }
 }

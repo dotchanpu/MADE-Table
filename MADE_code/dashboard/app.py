@@ -310,7 +310,6 @@ def _run_payload(run_dir: Path, event_limit: int = 240) -> Dict[str, Any]:
     actual_files = []
     if test_path and test_path.is_dir():
         expected_files = sorted(str(path.relative_to(test_path)) for path in (test_path / "output").glob("**/*") if path.is_file())
-        actual_files = expected_files
 
     totals = {
         "llm_calls": len(llm_events),
