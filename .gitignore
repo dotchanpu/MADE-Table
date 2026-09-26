@@ -1,0 +1,17 @@
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.DS_Store
+logs/
+repo/
+repos/
+weights/
+generated/
+*.log
+*.jsonl
+config/*local*.yaml
+config/*local*.yml
+*.swp
+
