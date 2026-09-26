@@ -73,6 +73,7 @@ h2 { font-size: 16px; }
 .pipeline-panel { margin-bottom: 16px; }
 .panel-heading { justify-content: space-between; gap: 14px; margin-bottom: 16px; }
 .compact-heading { margin-bottom: 14px; }
+.phase-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .panel-heading .eyebrow { margin-bottom: 6px; }
 .legend { gap: 12px; color: var(--muted); font-size: 11px; flex-wrap: wrap; justify-content: flex-end; }
 .legend-dot { width: 7px; height: 7px; display: inline-block; margin-right: 5px; }

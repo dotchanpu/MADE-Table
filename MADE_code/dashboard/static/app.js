@@ -119,6 +119,8 @@ function phaseDetailMarkup(phase) {
 
 function renderPhaseDetail() {
   const phase = phaseByName(selectedPhase);
+  const statePhaseSelect = document.getElementById("state-phase-select");
+  if (statePhaseSelect) statePhaseSelect.value = selectedPhase;
   document.getElementById("phase-detail-title").textContent = phaseLabels[selectedPhase] || selectedPhase;
   const status = document.getElementById("phase-detail-status");
   status.className = `status-pill ${statusClass(phase.status)}`;
@@ -365,6 +367,11 @@ function setPage(page, updateHash = true) {
 
 document.getElementById("refresh-button").addEventListener("click", refresh);
 document.getElementById("event-filter").addEventListener("change", renderTimeline);
+document.getElementById("state-phase-select").addEventListener("change", (event) => {
+  selectedPhase = event.target.value;
+  renderPhaseDetail();
+  renderPipeline();
+});
 document.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => setPage(item.dataset.page)));
 window.addEventListener("hashchange", () => setPage(window.location.hash.replace(/^#\//, ""), false));
 setPage(window.location.hash.replace(/^#\//, ""), false);
