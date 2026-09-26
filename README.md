@@ -73,6 +73,11 @@ configuration) and use Docker Desktop's native `linux/arm64` CPU containers.
 This is a CPU-compatible deployment path, not a reproduction of the paper's
 two-NVIDIA-L20 hardware setting.
 
+The checked-in configuration defaults to Qwen through the OpenAI-compatible
+DashScope endpoint. You can switch between Qwen, DeepSeek, and another
+OpenAI-compatible service with `backend.provider` (`qwen`, `deepseek`, or
+`custom`) and the corresponding model/base URL.
+
 Then edit `config/global.yaml` → `backend:` and fill in:
 
 - `gr_base_url` + `gr_api_key` — your OpenAI-compatible LLM endpoint (used with
@@ -89,6 +94,25 @@ tracked config file:
 export MADE_GR_BASE_URL="https://your-openai-compatible-endpoint/v1"
 export MADE_GR_API_KEY="your-api-key"
 ```
+
+Qwen (DashScope):
+
+```bash
+export MADE_LLM_PROVIDER=qwen
+export DASHSCOPE_API_KEY="your-dashscope-key"
+export QWEN_MODEL=qwen-plus
+```
+
+DeepSeek:
+
+```bash
+export MADE_LLM_PROVIDER=deepseek
+export DEEPSEEK_API_KEY="your-deepseek-key"
+export DEEPSEEK_MODEL=deepseek-flash
+```
+
+Both providers use the OpenAI-compatible Chat Completions JSON mode, so the
+structured PM/EM/tool outputs do not depend on OpenAI-only `responses.parse`.
 
 On Apple Silicon, start Docker Desktop and verify the native arm64 engine:
 

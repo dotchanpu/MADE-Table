@@ -41,6 +41,10 @@ backend:
   # running. None of these are required to read the code; they are only used at
   # runtime for LLM queries and for downloading model weights.
   # ---------------------------------------------------------------------------
+  # Provider preset used by the generic --backend gr route. Supported values:
+  # qwen, deepseek, or custom. Override with MADE_LLM_PROVIDER.
+  provider: qwen
+  model: qwen-plus
   # LLM endpoint. The pipeline talks to an OpenAI-compatible API. Point base_url
   # at your provider (e.g. https://api.openai.com/v1) and supply the key.
   gr_base_url: "https://YOUR_OPENAI_COMPATIBLE_ENDPOINT"

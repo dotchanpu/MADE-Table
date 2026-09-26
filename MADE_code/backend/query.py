@@ -21,18 +21,79 @@ backend_config = global_config.get("backend") or {}
 # fallback for existing deployments.
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") or backend_config.get("openai_api_key")
 KEY77_API_KEY = os.environ.get("KEY77_API_KEY") or backend_config.get("key77_api_key")
+_configured_provider = str(backend_config.get("provider") or "custom").strip().lower()
+LLM_PROVIDER = (
+    os.environ.get("MADE_LLM_PROVIDER")
+    or _configured_provider
+).strip().lower()
+
+_PROVIDER_DEFAULTS = {
+    # DeepSeek's current OpenAI-compatible endpoint and model names.
+    "deepseek": {
+        "base_url": "https://api.deepseek.com",
+        "model": "deepseek-flash",
+        "api_key_env": "DEEPSEEK_API_KEY",
+    },
+    # DashScope's Beijing shared endpoint and a stable text model.
+    "qwen": {
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "model": "qwen-plus",
+        "api_key_env": "DASHSCOPE_API_KEY",
+    },
+}
+
+_provider_defaults = _PROVIDER_DEFAULTS.get(LLM_PROVIDER, {})
+_provider_key_env = _provider_defaults.get("api_key_env")
+_provider_key = os.environ.get(_provider_key_env) if _provider_key_env else None
+_provider_base_env = {
+    "deepseek": "DEEPSEEK_BASE_URL",
+    "qwen": "DASHSCOPE_BASE_URL",
+}.get(LLM_PROVIDER)
+_provider_model_env = {
+    "deepseek": "DEEPSEEK_MODEL",
+    "qwen": "QWEN_MODEL",
+}.get(LLM_PROVIDER)
+
+if LLM_PROVIDER in _PROVIDER_DEFAULTS:
+    _configured_provider_key = (
+        backend_config.get(f"{LLM_PROVIDER}_api_key")
+        or backend_config.get("api_key")
+    )
+    _configured_provider_base = backend_config.get("base_url")
+    _configured_provider_model = (
+        backend_config.get(f"{LLM_PROVIDER}_model")
+        or (backend_config.get("model") if LLM_PROVIDER == _configured_provider else None)
+    )
+else:
+    _configured_provider_key = backend_config.get("gr_api_key")
+    _configured_provider_base = backend_config.get("gr_base_url")
+    _configured_provider_model = backend_config.get("gr_model") or backend_config.get("model")
+
+# The `gr` backend is retained as the generic OpenAI-compatible route used by
+# the rest of MADE. `provider` selects the concrete service behind that route.
 GR_API_KEY = (
-    os.environ.get("MADE_GR_API_KEY")
+    _provider_key
+    or os.environ.get("MADE_LLM_API_KEY")
+    or os.environ.get("MADE_GR_API_KEY")
     or os.environ.get("GR_API_KEY")
-    or backend_config.get("gr_api_key")
+    or _configured_provider_key
 )
-# OpenAI-compatible endpoint for the "gr" backend. Read from config so no
-# private endpoint is hard-coded; set backend.gr_base_url in config/global.yaml.
 GR_BASE_URL = (
-    os.environ.get("MADE_GR_BASE_URL")
-    or backend_config.get("gr_base_url")
+    (os.environ.get(_provider_base_env) if _provider_base_env else None)
+    or os.environ.get("MADE_LLM_BASE_URL")
+    or os.environ.get("MADE_GR_BASE_URL")
+    or _configured_provider_base
+    or _provider_defaults.get("base_url")
     or "https://api.openai.com/v1"
 )
+GR_MODEL = (
+    (os.environ.get(_provider_model_env) if _provider_model_env else None)
+    or os.environ.get("MADE_LLM_MODEL")
+    or _configured_provider_model
+    or _provider_defaults.get("model")
+    or "gpt-5.2"
+)
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL") or backend_config.get("openai_model") or "gpt-5.2"
 
 # Number of top logprobs to request for the EM action call. 0 (default) means
 # the parameter is NOT sent -> identical to prior behavior (zero risk if the
@@ -151,16 +212,15 @@ def query_openai(prompt):
     client = OpenAI(api_key=OPENAI_API_KEY)
     t0 = time.time()
     response = client.chat.completions.create(
-        model="gpt-5.2",
+        model=OPENAI_MODEL,
         messages=[
             {"role": "system", "content": "You are a helpful assistant"},
             {"role": "user", "content": prompt},
-        ],
-        logprobs=True,
+        ]
     )
     duration = time.time() - t0
     text = response.choices[0].message.content
-    _log("query", "general", "openai", "gpt-5.2", prompt, text,
+    _log("query", "general", "openai", OPENAI_MODEL, prompt, text,
          _extract_usage(response), _extract_logprobs(response), duration)
     return text
 
@@ -171,16 +231,15 @@ def query_gr(prompt):
     )
     t0 = time.time()
     response = client.chat.completions.create(
-        model="gpt-5.2",
+        model=GR_MODEL,
         messages=[
             {"role": "system", "content": "You are a helpful assistant"},
             {"role": "user", "content": prompt},
-        ],
-        logprobs=True,
+        ]
     )
     duration = time.time() - t0
     text = response.choices[0].message.content
-    _log("query", "general", "gr", "gpt-5.2", prompt, text,
+    _log("query", "general", LLM_PROVIDER, GR_MODEL, prompt, text,
          _extract_usage(response), _extract_logprobs(response), duration)
     return text
 
@@ -214,51 +273,60 @@ def json_query(prompt, role, backend: str) -> str:
     response = _retry_on_rate_limit(query_function)(prompt, role)
     return response
 
-def json_query_openai(prompt, role):
+
+def _structured_chat(client, model, prompt, role):
+    """Call the broadly supported Chat Completions JSON mode.
+
+    DeepSeek and DashScope both expose OpenAI-compatible Chat Completions, but
+    provider support for OpenAI's Responses `parse()` helper is not uniform.
+    JSON mode plus Pydantic validation keeps the same structured contract while
+    working across both providers.
+    """
     role_schema = output_schema(role)
     role_description = role_description_text(role)
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    t0 = time.time()
-    parse_kwargs = _logprobs_kwargs(role)
-    response = client.responses.parse(
-        model="gpt-5.2",
-        input=[
-            {"role": "system", "content": role_description},
+    schema_json = json.dumps(role_schema.model_json_schema(), ensure_ascii=False)
+    system_prompt = (
+        f"{role_description}\n"
+        "Return exactly one valid JSON object and no Markdown or extra text. "
+        "The JSON must conform to this schema:\n"
+        f"{schema_json}"
+    )
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ],
-        text_format=role_schema,
-        **parse_kwargs,
+        response_format={"type": "json_object"},
     )
+    content = response.choices[0].message.content or ""
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{role} returned invalid JSON: {content[:500]}") from exc
+    return role_schema.model_validate(parsed), response
+
+def json_query_openai(prompt, role):
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    t0 = time.time()
+    parsed, response = _structured_chat(client, OPENAI_MODEL, prompt, role)
     duration = time.time() - t0
-    response_string = response.output_parsed
-    response_json = json.loads(response_string.model_dump_json())
-    _log("json_query", role, "openai", "gpt-5.2", prompt, response_json,
-         _extract_usage(response), _extract_logprobs_parsed(response), duration)
+    response_json = parsed.model_dump()
+    _log("json_query", role, "openai", OPENAI_MODEL, prompt, response_json,
+         _extract_usage(response), _extract_logprobs(response), duration)
     return response_json
 
 def json_query_gr(prompt, role):
-    role_schema = output_schema(role)
-    role_description = role_description_text(role)
     client = OpenAI(
         api_key=GR_API_KEY,
         base_url=GR_BASE_URL
     )
     t0 = time.time()
-    parse_kwargs = _logprobs_kwargs(role)
-    response = client.responses.parse(
-        model="gpt-5.2",
-        input=[
-            {"role": "system", "content": role_description},
-            {"role": "user", "content": prompt},
-        ],
-        text_format=role_schema,
-        **parse_kwargs,
-    )
+    parsed, response = _structured_chat(client, GR_MODEL, prompt, role)
     duration = time.time() - t0
-    response_string = response.output_parsed
-    response_json = json.loads(response_string.model_dump_json())
-    _log("json_query", role, "gr", "gpt-5.2", prompt, response_json,
-         _extract_usage(response), _extract_logprobs_parsed(response), duration)
+    response_json = parsed.model_dump()
+    _log("json_query", role, LLM_PROVIDER, GR_MODEL, prompt, response_json,
+         _extract_usage(response), _extract_logprobs(response), duration)
     return response_json
 
 
@@ -276,44 +344,24 @@ def code_query(prompt, role, backend: str):
     return response
 
 def code_query_openai(prompt, role):
-    role_schema = output_schema(role)
-    role_description = role_description_text(role)
     client = OpenAI(api_key=OPENAI_API_KEY)
     t0 = time.time()
-    response = client.responses.parse(
-        model="gpt-5.2",
-        input=[
-            {"role": "system", "content": role_description},
-            {"role": "user", "content": prompt},
-        ],
-        text_format=role_schema,
-    )
+    parsed, response = _structured_chat(client, OPENAI_MODEL, prompt, role)
     duration = time.time() - t0
-    response_string = response.output_parsed
-    response_json = json.loads(response_string.model_dump_json())
-    _log("code_query", role, "openai", "gpt-5.2", prompt, response_json,
-         _extract_usage(response), _extract_logprobs_parsed(response), duration)
+    response_json = parsed.model_dump()
+    _log("code_query", role, "openai", OPENAI_MODEL, prompt, response_json,
+         _extract_usage(response), _extract_logprobs(response), duration)
     return response_json
 
 def code_query_gr(prompt, role):
-    role_schema = output_schema(role)
-    role_description = role_description_text(role)
     client = OpenAI(
         api_key=GR_API_KEY,
         base_url=GR_BASE_URL
     )
     t0 = time.time()
-    response = client.responses.parse(
-        model="gpt-5.2",
-        input=[
-            {"role": "system", "content": role_description},
-            {"role": "user", "content": prompt},
-        ],
-        text_format=role_schema,
-    )
+    parsed, response = _structured_chat(client, GR_MODEL, prompt, role)
     duration = time.time() - t0
-    response_string = response.output_parsed
-    response_json = json.loads(response_string.model_dump_json())
-    _log("code_query", role, "gr", "gpt-5.2", prompt, response_json,
-         _extract_usage(response), _extract_logprobs_parsed(response), duration)
+    response_json = parsed.model_dump()
+    _log("code_query", role, LLM_PROVIDER, GR_MODEL, prompt, response_json,
+         _extract_usage(response), _extract_logprobs(response), duration)
     return response_json

@@ -66,8 +66,15 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Also required (not a pip package): **Docker Engine** with the **NVIDIA container
-runtime** for GPU inference.
+Also required (not a pip package): **Docker Engine**. On Apple Silicon/M5,
+set `docker_setting.use_gpu` to `none` and use Docker Desktop's native
+`linux/arm64` CPU containers. The paper's NVIDIA-L20 environment is not
+required for this CPU-compatible path.
+
+The checked-in configuration defaults to Qwen through the OpenAI-compatible
+DashScope endpoint. You can switch between Qwen, DeepSeek, and another
+OpenAI-compatible service with `backend.provider` (`qwen`, `deepseek`, or
+`custom`) and the corresponding model/base URL.
 
 Then edit `config/global.yaml` → `backend:` and fill in:
 
@@ -77,6 +84,23 @@ Then edit `config/global.yaml` → `backend:` and fill in:
   needed to download weights hosted on those services.
 - `download_setting.repo_root` / `weights_root` — where cloned repos and
   downloaded weights are stored.
+
+Provider credentials can be supplied without editing the tracked config:
+
+```bash
+# Qwen (DashScope)
+export MADE_LLM_PROVIDER=qwen
+export DASHSCOPE_API_KEY="your-dashscope-key"
+export QWEN_MODEL=qwen-plus
+
+# Or DeepSeek
+export MADE_LLM_PROVIDER=deepseek
+export DEEPSEEK_API_KEY="your-deepseek-key"
+export DEEPSEEK_MODEL=deepseek-flash
+```
+
+Both providers use the OpenAI-compatible Chat Completions JSON mode, so the
+structured PM/EM/tool outputs do not depend on OpenAI-only `responses.parse`.
 
 ## Running
 
