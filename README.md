@@ -66,8 +66,12 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Also required (not a pip package): **Docker Engine** with the **NVIDIA container
-runtime** for GPU inference.
+Also required (not a pip package): **Docker Engine**. The paper's reference
+environment uses NVIDIA GPUs and the NVIDIA container runtime. On an Apple
+Silicon/M5 Mac, set `docker_setting.use_gpu` to `none` (as in the checked-in
+configuration) and use Docker Desktop's native `linux/arm64` CPU containers.
+This is a CPU-compatible deployment path, not a reproduction of the paper's
+two-NVIDIA-L20 hardware setting.
 
 Then edit `config/global.yaml` → `backend:` and fill in:
 
@@ -77,6 +81,21 @@ Then edit `config/global.yaml` → `backend:` and fill in:
   needed to download weights hosted on those services.
 - `download_setting.repo_root` / `weights_root` — where cloned repos and
   downloaded weights are stored.
+
+For local development, credentials can also be supplied without editing the
+tracked config file:
+
+```bash
+export MADE_GR_BASE_URL="https://your-openai-compatible-endpoint/v1"
+export MADE_GR_API_KEY="your-api-key"
+```
+
+On Apple Silicon, start Docker Desktop and verify the native arm64 engine:
+
+```bash
+open -a Docker
+docker run --rm --platform linux/arm64 hello-world
+```
 
 ## Running
 

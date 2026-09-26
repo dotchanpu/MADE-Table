@@ -6,7 +6,7 @@
     "1. Use the provided imports to determine required Python packages.",
     "2. Use the provided runtime-related files as additional evidence for dependency and packaging choices.",
     "3. Use the provided GPU profile to decide the GPU deployment strategy for the Dockerfile.",
-    "4. Focus on GPU deployment. If GPU is enabled or requested by the GPU profile, generate a GPU-oriented Dockerfile instead of a CPU fallback.",
+    "4. If GPU is enabled or requested by the GPU profile, generate a GPU-oriented Dockerfile. If gpu_enabled is false, generate a CPU-only Dockerfile: use a normal multi-architecture Python base image, CPU-compatible framework wheels, and never add CUDA, NVIDIA, --gpus, or nvidia-container-runtime requirements.",
     "5. When torch, torchvision, torchaudio, CUDA, cuDNN, or NVIDIA runtime evidence is present, keep those constraints aligned and prefer CUDA-capable base images or CUDA-capable torch installations supported by the evidence.",
     "6. If GPU inventory is unavailable but GPU is requested, still generate a GPU-oriented Dockerfile using the strongest CUDA/PyTorch evidence available from the repository.",
     "7. Convert Python import names to real pip package names if needed.",

@@ -60,7 +60,10 @@ docker_setting:
   container_name: None
   image_name: None
   port_mapping: 48205:8000
-  use_gpu: device=0,1,2,3
+  # Apple Silicon/M5 has no NVIDIA CUDA runtime. Use Docker Desktop's
+  # linux/arm64 CPU containers and let the generated Dockerfile install the
+  # CPU variant of any ML framework it needs.
+  use_gpu: none
   work_dir: /workspace
 download_setting:
   repo_root: 

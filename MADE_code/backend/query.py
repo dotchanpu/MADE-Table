@@ -15,12 +15,24 @@ file_path = os.path.dirname(__file__)
 project_path = os.path.dirname(file_path)
 global_config = yaml.safe_load(open(os.path.join(project_path, "config/global.yaml"), "r"))
 
-OPENAI_API_KEY = global_config.get("backend").get("openai_api_key")
-KEY77_API_KEY = global_config.get("backend").get("key77_api_key")
-GR_API_KEY = global_config.get("backend").get("gr_api_key")
+backend_config = global_config.get("backend") or {}
+# Prefer environment variables so local/API credentials never need to be
+# committed to global.yaml. The config values remain a backwards-compatible
+# fallback for existing deployments.
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") or backend_config.get("openai_api_key")
+KEY77_API_KEY = os.environ.get("KEY77_API_KEY") or backend_config.get("key77_api_key")
+GR_API_KEY = (
+    os.environ.get("MADE_GR_API_KEY")
+    or os.environ.get("GR_API_KEY")
+    or backend_config.get("gr_api_key")
+)
 # OpenAI-compatible endpoint for the "gr" backend. Read from config so no
 # private endpoint is hard-coded; set backend.gr_base_url in config/global.yaml.
-GR_BASE_URL = global_config.get("backend").get("gr_base_url") or "https://api.openai.com/v1"
+GR_BASE_URL = (
+    os.environ.get("MADE_GR_BASE_URL")
+    or backend_config.get("gr_base_url")
+    or "https://api.openai.com/v1"
+)
 
 # Number of top logprobs to request for the EM action call. 0 (default) means
 # the parameter is NOT sent -> identical to prior behavior (zero risk if the
