@@ -943,7 +943,9 @@ def main():
         else:
             next_phase_list = []
             for item in results:
-                next_phase_list.append(f"{item["result"][2]}: suggested_next_phase {item["result"][1]}")
+                next_phase_list.append(
+                    f"{item['result'][2]}: suggested_next_phase {item['result'][1]}"
+                )
                 status = item["result"][3] if len(item["result"]) > 3 else {}
                 if status.get("pm_decision"):
                     pm_board.append(status["pm_decision"])
