@@ -103,6 +103,15 @@ td { border-top: 1px solid var(--line); padding: 11px 10px; vertical-align: top;
 td:first-child { color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
 td:nth-child(3) { color: var(--muted); max-width: 300px; word-break: break-word; }
 td:last-child { color: var(--blue); white-space: nowrap; }
+.state-panel table { table-layout: fixed; }
+.state-panel th { white-space: nowrap; }
+.state-panel th:nth-child(1), .state-panel td:nth-child(1) { width: 29%; }
+.state-panel th:nth-child(2), .state-panel td:nth-child(2) { width: 18%; }
+.state-panel th:nth-child(3), .state-panel td:nth-child(3) { width: 35%; max-width: none; }
+.state-panel th:nth-child(4), .state-panel td:nth-child(4) { width: 18%; }
+.state-panel td:nth-child(2) { white-space: nowrap; }
+.state-panel td:nth-child(3) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.state-panel td:nth-child(4) { overflow: hidden; text-overflow: ellipsis; }
 .empty-state { color: var(--muted); font-size: 13px; line-height: 1.7; padding: 22px 4px; }
 .detail-list { display: grid; gap: 12px; }
 .detail-row { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
@@ -188,4 +197,6 @@ td:last-child { color: var(--blue); white-space: nowrap; }
   .page-footer { gap: 12px; align-items: flex-start; flex-direction: column; }
   .api-contract-grid { grid-template-columns: 1fr; }
   .api-contract-item.pipeline-contract { grid-column: auto; flex-wrap: wrap; justify-content: flex-start; }
+  .state-panel .table-wrap { overflow-x: auto; }
+  .state-panel table { min-width: 720px; }
 }
