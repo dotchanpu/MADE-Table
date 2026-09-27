@@ -1853,6 +1853,17 @@ class ServiceDelivery(BasePhase):
         just the case directory. The matcher inside _compose_request_body
         will pick which file(s) to use based on the schema.
         """
+        # Accept both the test-suite parent (``.../testfiles``) and a direct
+        # case directory (``.../case1``). Without this normalization a direct
+        # case path is treated as the parent and the matcher looks for
+        # ``case1/case1/input``.
+        test_file_dir = Path(test_file_dir)
+        direct_input_dir = test_file_dir / "input"
+        if direct_input_dir.is_dir():
+            has_input = any(path.is_file() for path in direct_input_dir.rglob("*"))
+            if has_input or (direct_input_dir / "input.json").exists():
+                return test_file_dir
+
         case_dirs = [path for path in sorted(test_file_dir.iterdir()) if path.is_dir()]
         for case_dir in case_dirs:
             input_dir = case_dir / "input"
