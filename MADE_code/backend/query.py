@@ -304,6 +304,17 @@ def _structured_chat(client, model, prompt, role):
         parsed = json.loads(content)
     except json.JSONDecodeError as exc:
         raise ValueError(f"{role} returned invalid JSON: {content[:500]}") from exc
+
+    # DeepSeek sometimes emits the EM tool arguments as a plain object
+    # (``{"container_id": "..."}``) even though the project schema describes
+    # them as a list of ``{"key": ..., "value": ...}`` pairs.  Both forms
+    # carry the same information; normalize the provider variant before
+    # validating so a valid tool decision is not discarded by Pydantic.
+    if role == "em" and isinstance(parsed, dict) and isinstance(parsed.get("arguments"), dict):
+        parsed["arguments"] = [
+            {"key": key, "value": value}
+            for key, value in parsed["arguments"].items()
+        ]
     return role_schema.model_validate(parsed), response
 
 def json_query_openai(prompt, role):
