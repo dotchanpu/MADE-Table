@@ -335,8 +335,12 @@ def path_to_import(repo_root: Path, predict_dir: Path,predict_file = "predict.py
         -> src.api.predict
     """
     try:
-        repo_root = Path(repo_root)
-        predict_dir = Path(predict_dir)
+        # `/tmp` is a symlink to `/private/tmp` on macOS.  Normalize both
+        # paths before checking containment so a repository cloned through the
+        # harness path is treated the same as the files returned by tools that
+        # report their canonical path.
+        repo_root = Path(repo_root).expanduser().resolve()
+        predict_dir = Path(predict_dir).expanduser().resolve()
         relative = predict_dir.relative_to(repo_root)
     except ValueError:
         raise ValueError("predict_dir must be under repo_root")
