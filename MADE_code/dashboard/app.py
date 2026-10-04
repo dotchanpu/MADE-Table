@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
@@ -22,6 +23,7 @@ from urllib.request import Request as UrlRequest, urlopen
 from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+import yaml
 
 
 MADE_ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +53,15 @@ PHASE_LABELS = {
 PHASE_DESCRIPTIONS = {item.get("name"): item.get("description", "") for item in PHASE_CONFIG}
 
 
+def _docker_work_dir() -> Path:
+    try:
+        config = yaml.safe_load((MADE_ROOT / "config" / "global.yaml").read_text(encoding="utf-8")) or {}
+        work_dir = (config.get("docker_setting") or {}).get("work_dir") or "/workspace"
+        return Path(str(work_dir))
+    except (OSError, yaml.YAMLError, AttributeError):
+        return Path("/workspace")
+
+
 app = FastAPI(title="MADE Dashboard", version="0.1.0")
 app.mount("/static", StaticFiles(directory=str(STATIC_ROOT)), name="static")
 
@@ -73,6 +84,26 @@ def _run_dir(run_id: str) -> Path:
     if path.parent != LOG_ROOT or not path.is_dir():
         raise HTTPException(status_code=404, detail="run not found")
     return path
+
+
+def _run_updated_at(run_dir: Path) -> str:
+    """Use the latest file write, not directory creation time.
+
+    A run directory is created at startup, so ``run_dir.stat().st_mtime`` can
+    make an old, long-running job look older than a newer job that finished
+    quickly. The event log is the authoritative activity clock.
+    """
+    candidates = [
+        path for path in (
+            run_dir / "calls.jsonl",
+            run_dir / "summary.txt",
+            run_dir / "variable_store_after_parallel.json",
+        ) if path.is_file()
+    ]
+    if not candidates:
+        candidates = [run_dir]
+    latest_mtime = max(path.stat().st_mtime for path in candidates)
+    return datetime.fromtimestamp(latest_mtime).isoformat()
 
 
 def _redact(value: Any) -> str:
@@ -196,24 +227,62 @@ def _find_nested_deployment_state(value: Any) -> Optional[List[Dict[str, Any]]]:
     return None
 
 
-def _phase_state(variables: Dict[str, Any], checkpoint: Dict[str, Any], events: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _phase_state(
+    variables: Dict[str, Any],
+    checkpoint: Dict[str, Any],
+    events: Iterable[Dict[str, Any]],
+    pipeline_done: bool = False,
+) -> List[Dict[str, Any]]:
+    events = list(events)
     stored_keys = set(variables)
     stored_keys.update(event.get("variable") for event in events if event.get("event") == "variable_stored")
     checkpoint_state = _find_nested_deployment_state(checkpoint)
+    last_phase_end = {
+        name: max(
+            (int(event.get("id") or 0) for event in events
+             if event.get("event") == "phase_end" and event.get("phase") == name),
+            default=0,
+        )
+        for name in PHASE_NAMES
+    }
+
+    # A phase is live when its event stream has activity after its most recent
+    # phase_end. This also handles WeightResolve and DockerSetUp running in
+    # parallel: both remain visibly "运行中" until their own phase_end event.
+    active_phases = {
+        name for name in PHASE_NAMES
+        if any(
+            event.get("phase") == name
+            and event.get("event") != "phase_end"
+            and int(event.get("id") or 0) > last_phase_end[name]
+            for event in events
+        )
+    }
     result: List[Dict[str, Any]] = []
     for phase in PHASE_CONFIG:
         name = phase.get("name")
         required = phase.get("required_outputs", []) or []
         from_checkpoint = next((item for item in checkpoint_state or [] if item.get("phase") == name), None)
-        if from_checkpoint:
-            result.append(dict(from_checkpoint))
-            continue
         present = [key for key in required if key in stored_keys]
         missing = [key for key in required if key not in present]
         phase_end = any(event.get("event") == "phase_end" and event.get("phase") == name for event in events)
-        status = "completed" if required and not missing else ("partial" if present else "not_started")
-        if phase_end and not required:
+        if required and not missing:
             status = "completed"
+        elif phase_end and not required:
+            status = "completed"
+        elif present:
+            status = "partial"
+        elif from_checkpoint:
+            # The parallel checkpoint is intentionally written before the
+            # post-parallel phases run. Preserve its status only when the
+            # final event stream has no newer evidence for this phase.
+            status = from_checkpoint.get("status", "not_started")
+            present = list(from_checkpoint.get("present_outputs", []) or [])
+            missing = list(from_checkpoint.get("missing_outputs", []) or [])
+        else:
+            status = "not_started"
+        if not pipeline_done and name in active_phases:
+            status = "running"
         result.append({
             "phase": name,
             "status": status,
@@ -310,24 +379,52 @@ def _validate_test_target(value: Any, endpoint: Any) -> str:
     return f"{base}{path}"
 
 
+def _inference_status(response_payload: Any) -> Dict[str, Any]:
+    """Separate reachable API status from meaningful model inference status."""
+    if not isinstance(response_payload, dict):
+        return {"status": "unknown", "message": "服务返回的不是 JSON 对象"}
+    if not response_payload.get("success"):
+        return {"status": "failed", "message": str(response_payload.get("error") or "推理失败")}
+    result = response_payload.get("result")
+    if not isinstance(result, dict):
+        return {"status": "unknown", "message": "服务未返回结构化推理结果"}
+    model_status = result.get("model_status")
+    if isinstance(model_status, dict) and model_status.get("weights_loaded") is False:
+        return {"status": "invalid", "message": "模型权重未成功加载"}
+    predictions = result.get("predictions_top5")
+    tokens = [
+        str(item.get("token_str") or "").strip().lower()
+        for item in predictions
+        if isinstance(item, dict) and str(item.get("token_str") or "").strip()
+    ] if isinstance(predictions, list) else []
+    if tokens and all(token in {"[unk]", "<unk>", "unk"} for token in tokens):
+        return {"status": "invalid", "message": "top-k 预测全部为 [UNK]"}
+    return {"status": "valid", "message": "模型已完成有效推理"}
+
+
 def _run_payload(run_dir: Path, event_limit: int = 240) -> Dict[str, Any]:
     run_id = run_dir.name
     events = _read_events(run_dir)
     checkpoint = _json_load(run_dir / "variable_store_after_parallel.json", {})
     variables = checkpoint.get("variable_store", {}) or {}
-    states = _phase_state(variables, checkpoint, events)
+    # The parallel checkpoint is written before APIAdaptation and
+    # ServiceDelivery. Merge later variable outputs from the event stream so
+    # the dashboard reflects the final run rather than the checkpoint view.
+    variables = dict(variables)
+    for event in events:
+        if event.get("event") == "variable_stored" and event.get("variable"):
+            variables[event["variable"]] = event.get("value_summary")
+    pipeline_end = next((event for event in reversed(events) if event.get("event") == "pipeline_end"), None)
+    states = _phase_state(variables, checkpoint, events, pipeline_done=bool(pipeline_end))
     phase_end_events = [event for event in events if event.get("event") == "phase_end"]
     gate_events = [event for event in events if event.get("event") == "gate_decision"]
     gate_stats = [event for event in events if event.get("event") == "gate_stats"]
-    pipeline_end = next((event for event in reversed(events) if event.get("event") == "pipeline_end"), None)
     latest = events[-1] if events else None
     latest_phase = next((event.get("phase") for event in reversed(events) if event.get("phase") in PHASE_NAMES), None)
     llm_events = [event for event in events if event.get("event") == "llm_call"]
     provider = next((event.get("backend") for event in reversed(llm_events) if event.get("backend")), None)
     model = next((event.get("model") for event in reversed(llm_events) if event.get("model")), None)
     run_status = "completed" if pipeline_end else ("running" if latest else "not_started")
-    if checkpoint and not pipeline_end and latest and latest.get("event") == "phase_end":
-        run_status = "checkpointed"
     if not events and checkpoint:
         run_status = "checkpointed"
 
@@ -338,7 +435,26 @@ def _run_payload(run_dir: Path, event_limit: int = 240) -> Dict[str, Any]:
     expected_files = []
     actual_files = []
     if test_path and test_path.is_dir():
-        expected_files = sorted(str(path.relative_to(test_path)) for path in (test_path / "output").glob("**/*") if path.is_file())
+        expected_files = sorted(
+            str(path.relative_to(test_path))
+            for path in test_path.glob("**/output/**/*")
+            if path.is_file()
+        )
+    run_test_output_root = run_dir / "test_outputs"
+    if run_test_output_root.is_dir():
+        actual_files = sorted(
+            str(path.relative_to(run_dir))
+            for path in run_test_output_root.glob("**/inference_output_*/response_payload.json")
+            if path.is_file()
+        )
+    elif test_path and test_path.is_dir():
+        # Preserve visibility for historical runs created before validation
+        # artifacts were moved out of case directories.
+        actual_files = sorted(
+            str(path.relative_to(test_path))
+            for path in test_path.glob("**/inference_output_*/response_payload.json")
+            if path.is_file()
+        )
 
     totals = {
         "llm_calls": len(llm_events),
@@ -355,7 +471,7 @@ def _run_payload(run_dir: Path, event_limit: int = 240) -> Dict[str, Any]:
             "provider": provider,
             "model": model,
             "backend": provider,
-            "updated_at": datetime.fromtimestamp(run_dir.stat().st_mtime).isoformat(),
+            "updated_at": _run_updated_at(run_dir),
             "log_dir": str(run_dir),
         },
         "phases": states,
@@ -369,6 +485,8 @@ def _run_payload(run_dir: Path, event_limit: int = 240) -> Dict[str, Any]:
             "interventions": sum(1 for event in gate_events if event.get("intervene")),
         },
         "service": {
+            "repo_root": variables.get("repo_root"),
+            "container_work_dir": str(_docker_work_dir()),
             "container_id": container_id,
             "container_status": _docker_status(container_id),
             "container_name": variables.get("container_name"),
@@ -382,7 +500,7 @@ def _run_payload(run_dir: Path, event_limit: int = 240) -> Dict[str, Any]:
             "test_file_dir": str(test_path) if test_path else None,
             "expected_files": expected_files,
             "actual_files": actual_files,
-            "status": "not_started" if not variables.get("api_pid") else "pending",
+            "status": "completed" if pipeline_end else ("pending" if variables.get("api_pid") else "not_started"),
         },
         "totals": totals,
     }
@@ -391,7 +509,8 @@ def _run_payload(run_dir: Path, event_limit: int = 240) -> Dict[str, Any]:
 def _list_run_ids() -> List[str]:
     if not LOG_ROOT.is_dir():
         return []
-    return sorted((path.name for path in LOG_ROOT.iterdir() if path.is_dir()), reverse=True)
+    run_dirs = [path for path in LOG_ROOT.iterdir() if path.is_dir()]
+    return [path.name for path in sorted(run_dirs, key=_run_updated_at, reverse=True)]
 
 
 @app.get("/")
@@ -432,12 +551,35 @@ def run_detail(run_id: str, event_limit: int = Query(240, ge=10, le=1000)) -> Di
 @app.post("/api/runs/{run_id}/invoke")
 def invoke_service(run_id: str, body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     """Proxy one explicit local smoke-test request to the deployed API."""
-    _run_dir(run_id)
+    run_dir = _run_dir(run_id)
     text = str(body.get("text") or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="请输入测试文本")
     target = _validate_test_target(body.get("target_url"), body.get("endpoint"))
-    request_payload = {"inputs": {"text": text}}
+
+    # The generated service contract uses file paths for raw_input fields.
+    # Stage interactive text under the deployed repository's mounted
+    # .autodeploy directory, then send the corresponding container path.
+    run_payload = _run_payload(run_dir, event_limit=1)
+    repo_root_value = run_payload.get("service", {}).get("repo_root")
+    if not repo_root_value:
+        raise HTTPException(status_code=409, detail="当前运行还没有可写入的部署仓库")
+    repo_root = Path(str(repo_root_value)).resolve()
+    if not repo_root.is_dir():
+        raise HTTPException(status_code=409, detail="部署仓库目录不可用")
+    token = uuid.uuid4().hex
+    host_input = repo_root / ".autodeploy" / "dashboard_inputs" / f"{token}.txt"
+    try:
+        host_input.parent.mkdir(parents=True, exist_ok=True)
+        host_input.write_text(text, encoding="utf-8")
+    except OSError as error:
+        raise HTTPException(status_code=500, detail=f"无法暂存测试输入: {error}") from error
+    try:
+        relative_input = host_input.relative_to(repo_root)
+    except ValueError as error:
+        raise HTTPException(status_code=500, detail="测试输入路径不在部署仓库内") from error
+    container_input = _docker_work_dir() / relative_input
+    request_payload = {"inputs": {"text": str(container_input)}}
     request = UrlRequest(
         target,
         data=json.dumps(request_payload, ensure_ascii=False).encode("utf-8"),
@@ -464,12 +606,14 @@ def invoke_service(run_id: str, body: Dict[str, Any] = Body(...)) -> Dict[str, A
         parsed_response: Any = json.loads(raw)
     except json.JSONDecodeError:
         parsed_response = raw
+    inference_status = _inference_status(parsed_response)
     return {
         "ok": 200 <= status_code < 300,
         "status_code": status_code,
         "duration_ms": round((time.perf_counter() - started) * 1000),
         "request_url": target,
         "response": parsed_response,
+        "inference_status": inference_status,
     }
 
 

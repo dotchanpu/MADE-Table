@@ -9,9 +9,9 @@ repo/
 repos/
 weights/
 generated/
+M2ABench/testfiles/**/inference_output_*/
 *.log
 *.jsonl
 config/*local*.yaml
 config/*local*.yml
 *.swp
-

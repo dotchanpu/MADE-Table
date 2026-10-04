@@ -1089,6 +1089,39 @@ class APIAdaptation(BasePhase):
 
         Path(save_path).write_text(file_text, encoding="utf-8")
 
+    def _ensure_generated_runtime_dependencies(self, service_path: Path, container_id: str) -> None:
+        """Install dependencies introduced by the generated service code.
+
+        DockerSetUp builds from the original repository before APIAdaptation
+        creates ``service.py``. A generated Hugging Face adapter can therefore
+        introduce ``transformers`` after the image has already been built.
+        Install only the packages whose imports are actually present and only
+        when the running container does not already provide them.
+        """
+        service_code = Path(service_path).read_text(encoding="utf-8")
+        package_specs = []
+        if re.search(r"(?:from|import)\s+transformers\b", service_code):
+            package_specs.append(("transformers", "transformers>=4.45,<5"))
+        if re.search(r"(?:from|import)\s+sentencepiece\b", service_code):
+            package_specs.append(("sentencepiece", "sentencepiece"))
+
+        for import_name, package_spec in package_specs:
+            probe = linux_command_in_docker(
+                f"python3 -c 'import {import_name}' 2>/dev/null",
+                container_id,
+            )
+            if probe.returncode == 0:
+                continue
+            result = linux_command_in_docker(
+                f"python3 -m pip install --no-cache-dir '{package_spec}'",
+                container_id,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"Generated service requires {package_spec}, but installation failed: "
+                    f"{result.stdout[-1200:]}"
+                )
+
     def assemble_verify_service_code_prompt(self, service_code: str):
         prompt_parts = []
 
@@ -1349,6 +1382,7 @@ class APIAdaptation(BasePhase):
 
             save_path = os.path.join(Path(entry_point_path).parent, "service.py")
             self.save_inference_pipeline(save_path, load_model_code, preprocess_code, inference_code, postprocess_code)
+            self._ensure_generated_runtime_dependencies(Path(save_path), container_id)
 
             # Persist input_schema to .autodeploy/input_schema.json via FileTracker
             # so (a) FastAPI can read it at every /predict_text request, and

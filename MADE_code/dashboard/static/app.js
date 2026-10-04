@@ -81,9 +81,13 @@ function renderPipeline() {
   pipeline.innerHTML = [
     phaseNode("repoingest", 1),
     '<div class="phase-connector" aria-hidden="true"></div>',
-    phaseNode("weightresolve", 2),
-    '<div class="phase-connector" aria-hidden="true"></div>',
-    phaseNode("dockersetup", 3),
+    `<div class="parallel-group" aria-label="WeightResolve 与 DockerSetUp 并行阶段">
+      <div class="parallel-caption"><span>并行执行</span></div>
+      <div class="parallel-lane">
+        ${phaseNode("weightresolve", 2)}
+        ${phaseNode("dockersetup", 3)}
+      </div>
+    </div>`,
     '<div class="phase-connector" aria-hidden="true"></div>',
     phaseNode("apiadaptation", 4),
     '<div class="phase-connector" aria-hidden="true"></div>',
@@ -332,10 +336,12 @@ async function invokeApiTest(text, fileName) {
       body: JSON.stringify({ target_url: targetUrl, endpoint: "/predict_text", text }),
     });
     const payload = await response.json();
-    const success = response.ok && payload.ok;
+    const inferenceStatus = payload.inference_status?.status;
+    const success = response.ok && payload.ok && inferenceStatus !== "invalid";
     status.className = `status-pill ${success ? "completed" : "failed"}`;
-    status.textContent = success ? "调用成功" : "调用失败";
-    meta.textContent = `${payload.status_code ?? "网络错误"} · ${payload.duration_ms ?? 0} ms`;
+    status.textContent = success ? "推理成功" : (inferenceStatus === "invalid" ? "模型结果异常" : "调用失败");
+    const statusText = payload.inference_status?.message ? ` · ${payload.inference_status.message}` : "";
+    meta.textContent = `${payload.status_code ?? "网络错误"} · ${payload.duration_ms ?? 0} ms${statusText}`;
     output.textContent = formatTestOutput(payload.response ?? payload.detail ?? payload);
   } catch (error) {
     status.className = "status-pill failed";
@@ -388,8 +394,15 @@ async function loadRuns() {
   const response = await fetch("/api/runs", { cache: "no-store" });
   if (!response.ok) throw new Error("无法读取运行记录");
   const runs = await response.json();
+  runs.sort((left, right) => {
+    const leftTime = Date.parse(left.updated_at || "") || 0;
+    const rightTime = Date.parse(right.updated_at || "") || 0;
+    return rightTime - leftTime;
+  });
   const list = document.getElementById("run-list");
-  if (!selectedRunId && runs.length) selectedRunId = runs[0].id;
+  if ((!selectedRunId || !runs.some((run) => run.id === selectedRunId)) && runs.length) {
+    selectedRunId = runs[0].id;
+  }
   if (!runs.length) {
     list.innerHTML = '<div class="muted small" style="padding:8px">暂无运行记录</div>';
     return false;

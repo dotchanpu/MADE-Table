@@ -19,9 +19,11 @@
     "4. Evaluate only the provided code.",
     "5. If is_correct is true, corrected_code must be an empty string.",
     "6. If is_correct is false and a safe correction is clearly possible from the provided code, provide corrected_code.",
-    "7. If is_correct is false but a safe correction is not possible from the provided code alone, corrected_code must be an empty string.",
-    "8. corrected_code must contain only one complete Python function definition with no markdown, no explanation, and no extra imports.",
-    "9. Do not rewrite correct functions."
+    "7. Mark load_model as incorrect when it silently falls back to random initialization, a reduced hand-built architecture, character-level tokenization, or heuristic partial loading while the available bundle contains a real Hugging Face config/tokenizer/checkpoint.",
+    "8. For masked-language-model services, require an explicit mask-token path and the matching tokenizer; an all-[UNK] result is evidence that the model bundle was not loaded correctly.",
+    "9. If is_correct is false but a safe correction is not possible from the provided code alone, corrected_code must be an empty string.",
+    "10. corrected_code must contain only one complete Python function definition with no markdown, no explanation, and no extra imports.",
+    "11. Do not rewrite correct functions."
   ],
   "pipeline_constraints": [
     "preprocess: must transform raw_input into model-ready inputs for exactly one sample.",

@@ -48,6 +48,7 @@
     "5. ERROR-CLASS HINTS for which side usually needs fixing:",
     "   - CUDA_ERROR / MODEL_LOAD_ERROR / DEPENDENCY_ERROR / TIMEOUT_ERROR / PROCESS_ERROR -> almost never a schema issue; set schema_changed=false.",
     "   - MISSING_FILE_ERROR -> model weights or companion files (tokenizer, config.json, vocab, etc.) were not found at the path used by the code. Check the AVAILABLE WEIGHT FILES section below to see what actually exists in the container's weights directory. Fix by pointing from_pretrained() / file load paths to the correct container path (typically /workspace/weights_related/...). Set schema_changed=false.",
+    "   - If a real Hugging Face checkpoint is present, never repair it with random initialization, a reduced hand-built architecture, character-level tokenization, or heuristic partial weight matching. Use the model config and matching tokenizer files, and fail clearly if a required companion file is missing.",
     "   - CONTRACT_ERROR / a `KeyError` inside preprocess / `schema mismatch` from FastAPI -> look at schema vs code mismatch; one of them needs to change, possibly both.",
     "   - IMPORT_ERROR -> schema is usually unaffected unless the missing import is a decoder used on raw_input.",
     "   - CONFIG_ERROR / RUNTIME_ERROR / UNKNOWN_ERROR -> inspect both sides, emit schema if in doubt.",

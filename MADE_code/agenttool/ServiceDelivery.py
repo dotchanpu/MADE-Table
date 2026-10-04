@@ -11,6 +11,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, List, Dict, Optional
 from backend.query import query, json_query
+from backend.logger import get_logger
 from agenttool.base_phase import BasePhase
 from agenttool.tool import linux_command, linux_command_in_docker, inspect_running, build_tree
 from agenttool.FileTracker import FileTracker
@@ -1746,6 +1747,22 @@ class ServiceDelivery(BasePhase):
             return port, port
         return 8000, 8000
 
+    def _inference_output_root(self, repo_root: Path) -> Path:
+        """Return the run-scoped directory for validation artifacts.
+
+        Validation responses are deployment-run evidence, not test-case
+        fixtures.  Keep them beside ``calls.jsonl`` so a run can be copied or
+        removed as one unit without mutating ``case*/input`` or ``case*/output``.
+        The fallback keeps direct/unit calls usable when no pipeline logger is
+        active.
+        """
+        logger = get_logger()
+        run_log_dir = getattr(logger, "log_dir", None) if logger else None
+        root = Path(run_log_dir) if run_log_dir else Path(repo_root) / ".autodeploy" / "test_outputs"
+        output_root = root / "test_outputs" if run_log_dir else root
+        output_root.mkdir(parents=True, exist_ok=True)
+        return output_root
+
     def _to_container_repo_path(self, repo_root: Path, host_path: Path) -> Path:
         repo_root = Path(repo_root).resolve()
         host_path = Path(host_path).resolve()
@@ -2086,6 +2103,36 @@ class ServiceDelivery(BasePhase):
     def _run_field_judges(self, normalization: Dict[str, Any]) -> Dict[str, Any]:
         return self._evaluate_llm_judge_result(normalization)
 
+    @staticmethod
+    def _inference_quality_failure(response_payload: Dict[str, Any]) -> Optional[str]:
+        """Reject transport-successful responses that prove model loading failed.
+
+        The LLM normalizer is intentionally tolerant of output-shape changes,
+        but it must not turn an all-``[UNK]`` response or an explicitly failed
+        model load into a passing deployment. Those are deterministic signals
+        that the service is reachable but inference is not meaningful.
+        """
+        result = response_payload.get("result") if isinstance(response_payload, dict) else None
+        if not isinstance(result, dict):
+            return None
+
+        model_status = result.get("model_status")
+        if isinstance(model_status, dict) and model_status.get("weights_loaded") is False:
+            return "模型服务明确报告权重未成功加载。"
+
+        predictions = result.get("predictions_top5")
+        if not isinstance(predictions, list) or not predictions:
+            return None
+        tokens = []
+        for item in predictions:
+            if isinstance(item, dict):
+                token = str(item.get("token_str") or "").strip().lower()
+                if token:
+                    tokens.append(token)
+        if tokens and all(token in {"[unk]", "<unk>", "unk"} for token in tokens):
+            return "模型服务返回的 top-k 预测全部为 [UNK]，说明 tokenizer 或模型权重没有正确加载。"
+        return None
+
     def _normalize_text(self, value: Any) -> str:
         return " ".join(str(value).strip().lower().split())
 
@@ -2294,6 +2341,7 @@ class ServiceDelivery(BasePhase):
             )
             output_format_reference = self._read_output_format_guide(test_file_dir)
             case_results = []
+            inference_output_root = self._inference_output_root(repo_root)
 
             with gpu_lock():
                 for case_dir in self._list_case_dirs(test_file_dir):
@@ -2304,8 +2352,20 @@ class ServiceDelivery(BasePhase):
 
                     # Save inference output for this case
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    inference_output_dir = case_dir / f"inference_output_{timestamp}"
+                    inference_output_dir = (
+                        inference_output_root
+                        / case_dir.name
+                        / f"inference_output_{timestamp}"
+                    )
                     inference_output_dir.mkdir(parents=True, exist_ok=True)
+                    (inference_output_dir / "request_body.json").write_text(
+                        json.dumps(
+                            {"inputs": inference_run["request_inputs"]},
+                            ensure_ascii=False,
+                            indent=2,
+                        ),
+                        encoding="utf-8",
+                    )
                     (inference_output_dir / "response_payload.json").write_text(
                         api_response_result, encoding="utf-8"
                     )
@@ -2335,6 +2395,16 @@ class ServiceDelivery(BasePhase):
                         api_response_result=api_response_result,
                     )
                     comparison = self._run_field_judges(normalization)
+                    quality_failure = self._inference_quality_failure(
+                        api_result["response_payload"]
+                    )
+                    if quality_failure:
+                        comparison = {
+                            "passed": False,
+                            "fields": comparison.get("fields", {}),
+                            "no_comparable_fields": comparison.get("no_comparable_fields", False),
+                            "reason": quality_failure,
+                        }
                     if comparison.get("no_comparable_fields"):
                         comparison["reason"] = (
                             f"{comparison['reason']}\n"
@@ -2420,13 +2490,31 @@ class ServiceDelivery(BasePhase):
             except Exception:
                 pass
 
-        # Verified example (request body + response)
+        # Verified example (request body + response). Prefer the current
+        # deployment-run evidence directory; fall back to legacy case-local
+        # artifacts so older runs remain inspectable.
         if test_file_dir is not None:
             try:
-                for case_dir in self._list_case_dirs(Path(test_file_dir)):
-                    try:
+                logger = get_logger()
+                run_log_dir = getattr(logger, "log_dir", None) if logger else None
+                evidence_roots = []
+                if run_log_dir:
+                    evidence_roots.append(Path(run_log_dir) / "test_outputs")
+                else:
+                    evidence_roots.append(Path(repo_root) / ".autodeploy" / "test_outputs")
+                evidence_roots.append(Path(test_file_dir))
+                for evidence_root in evidence_roots:
+                    if not evidence_root.is_dir():
+                        continue
+                    case_dirs = [path for path in sorted(evidence_root.iterdir()) if path.is_dir()]
+                    if evidence_root.name != "test_outputs":
+                        case_dirs = self._list_case_dirs(evidence_root)
+                    for case_dir in case_dirs:
                         inference_dirs = sorted(
-                            [d for d in case_dir.iterdir() if d.is_dir() and d.name.startswith("inference_output_")],
+                            [
+                                d for d in case_dir.iterdir()
+                                if d.is_dir() and d.name.startswith("inference_output_")
+                            ],
                             reverse=True,
                         )
                         if not inference_dirs:
@@ -2443,9 +2531,7 @@ class ServiceDelivery(BasePhase):
                         if example_parts:
                             parts.append(f"\n=== VERIFIED EXAMPLE (case: {case_dir.name}) ===")
                             parts.extend(example_parts)
-                            break
-                    except Exception:
-                        continue
+                            return "\n".join(parts)
             except Exception:
                 pass
 
