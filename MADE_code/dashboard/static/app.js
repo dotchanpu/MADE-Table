@@ -299,6 +299,54 @@ function renderService() {
     detailRow("实际输出文件", actual.join(", ") || "尚未生成"),
     detailRow("证据状态", evaluation.status === "not_started" ? "尚未进入 ServiceDelivery" : evaluation.status),
   ].join("");
+  const testUrl = document.getElementById("api-test-url");
+  if (testUrl && !testUrl.dataset.edited && service.test_base_url) testUrl.value = service.test_base_url;
+}
+
+function formatTestOutput(value) {
+  if (typeof value === "string") return value;
+  return JSON.stringify(value, null, 2);
+}
+
+async function invokeApiTest() {
+  const button = document.getElementById("api-test-submit");
+  const status = document.getElementById("api-test-status");
+  const output = document.getElementById("api-test-output");
+  const meta = document.getElementById("api-test-meta");
+  const targetUrl = document.getElementById("api-test-url").value.trim();
+  const endpoint = document.getElementById("api-test-endpoint").value;
+  const text = document.getElementById("api-test-input").value.trim();
+  if (!selectedRunId || !targetUrl || !text) {
+    status.className = "status-pill failed";
+    status.textContent = "缺少输入";
+    output.textContent = "请填写服务地址和输入文本。";
+    return;
+  }
+  button.disabled = true;
+  status.className = "status-pill running";
+  status.textContent = "请求中";
+  output.textContent = "正在等待服务响应…";
+  meta.textContent = `${endpoint} · 请求中`;
+  try {
+    const response = await fetch(`/api/runs/${encodeURIComponent(selectedRunId)}/invoke`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target_url: targetUrl, endpoint, text }),
+    });
+    const payload = await response.json();
+    const success = response.ok && payload.ok;
+    status.className = `status-pill ${success ? "completed" : "failed"}`;
+    status.textContent = success ? "调用成功" : "调用失败";
+    meta.textContent = `${payload.status_code ?? "网络错误"} · ${payload.duration_ms ?? 0} ms`;
+    output.textContent = formatTestOutput(payload.response ?? payload.detail ?? payload);
+  } catch (error) {
+    status.className = "status-pill failed";
+    status.textContent = "请求失败";
+    meta.textContent = "Dashboard 请求异常";
+    output.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function renderAll() {
@@ -371,6 +419,10 @@ document.getElementById("state-phase-select").addEventListener("change", (event)
   renderPhaseDetail();
   renderPipeline();
 });
+document.getElementById("api-test-url").addEventListener("input", (event) => {
+  event.target.dataset.edited = "true";
+});
+document.getElementById("api-test-submit").addEventListener("click", invokeApiTest);
 document.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => setPage(item.dataset.page)));
 window.addEventListener("hashchange", () => setPage(window.location.hash.replace(/^#\//, ""), false));
 setPage(window.location.hash.replace(/^#\//, ""), false);

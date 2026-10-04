@@ -1,4 +1,4 @@
-"""Read-only web dashboard for MADE runs.
+"""Web dashboard for MADE runs and deployed-service smoke tests.
 
 The dashboard deliberately consumes the pipeline's existing JSONL logs and
 parallel checkpoint.  It does not execute deployment tools or expose prompts
@@ -11,11 +11,15 @@ import json
 import os
 import re
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
+from urllib.request import Request as UrlRequest, urlopen
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -281,6 +285,31 @@ def _docker_status(container_id: Optional[str]) -> Optional[str]:
     return "unavailable"
 
 
+def _service_base_url(value: Any) -> Optional[str]:
+    """Convert a stored host-port mapping into a browser-testable base URL."""
+    if not value:
+        return None
+    text = str(value).strip()
+    match = re.search(r"(?:(?:127\.0\.0\.1|localhost):)?(\d+):\d+$", text)
+    if not match:
+        match = re.search(r"(?:127\.0\.0\.1|localhost):(?P<port>\d+)$", text)
+    if not match:
+        return None
+    port = match.group("port") if "port" in match.groupdict() else match.group(1)
+    return f"http://127.0.0.1:{port}"
+
+
+def _validate_test_target(value: Any, endpoint: Any) -> str:
+    base = str(value or "").strip().rstrip("/")
+    parsed = urlparse(base)
+    if parsed.scheme not in {"http", "https"} or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+        raise HTTPException(status_code=400, detail="测试地址只允许使用本机 localhost 服务")
+    path = str(endpoint or "/predict_text")
+    if path not in {"/predict_text", "/predict"}:
+        raise HTTPException(status_code=400, detail="不支持的测试接口")
+    return f"{base}{path}"
+
+
 def _run_payload(run_dir: Path, event_limit: int = 240) -> Dict[str, Any]:
     run_id = run_dir.name
     events = _read_events(run_dir)
@@ -347,6 +376,7 @@ def _run_payload(run_dir: Path, event_limit: int = 240) -> Dict[str, Any]:
             "runtime_port_mapping": variables.get("runtime_port_mapping"),
             "api_pid": variables.get("api_pid"),
             "api_documentation_path": variables.get("api_documentation_path"),
+            "test_base_url": _service_base_url(variables.get("runtime_port_mapping")),
         },
         "evaluation": {
             "test_file_dir": str(test_path) if test_path else None,
@@ -397,6 +427,50 @@ def runs() -> List[Dict[str, Any]]:
 @app.get("/api/runs/{run_id}")
 def run_detail(run_id: str, event_limit: int = Query(240, ge=10, le=1000)) -> Dict[str, Any]:
     return _run_payload(_run_dir(run_id), event_limit=event_limit)
+
+
+@app.post("/api/runs/{run_id}/invoke")
+def invoke_service(run_id: str, body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """Proxy one explicit local smoke-test request to the deployed API."""
+    _run_dir(run_id)
+    text = str(body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="请输入测试文本")
+    target = _validate_test_target(body.get("target_url"), body.get("endpoint"))
+    request_payload = {"inputs": {"text": text}}
+    request = UrlRequest(
+        target,
+        data=json.dumps(request_payload, ensure_ascii=False).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    started = time.perf_counter()
+    try:
+        with urlopen(request, timeout=45) as response:
+            raw = response.read().decode("utf-8", errors="replace")
+            status_code = response.status
+    except HTTPError as error:
+        raw = error.read().decode("utf-8", errors="replace")
+        status_code = error.code
+    except (URLError, TimeoutError, OSError) as error:
+        return {
+            "ok": False,
+            "status_code": None,
+            "duration_ms": round((time.perf_counter() - started) * 1000),
+            "request_url": target,
+            "response": {"error": str(error.reason if isinstance(error, URLError) else error)},
+        }
+    try:
+        parsed_response: Any = json.loads(raw)
+    except json.JSONDecodeError:
+        parsed_response = raw
+    return {
+        "ok": 200 <= status_code < 300,
+        "status_code": status_code,
+        "duration_ms": round((time.perf_counter() - started) * 1000),
+        "request_url": target,
+        "response": parsed_response,
+    }
 
 
 if __name__ == "__main__":

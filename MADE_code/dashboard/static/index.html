@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MADE · Deployment Console</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261004-pipeline" />
+    <link rel="stylesheet" href="/static/styles.css?v=20261004-console" />
   </head>
   <body>
     <div class="app-shell">
@@ -79,6 +79,7 @@
         <section class="page-view" data-view="service" hidden>
           <header class="page-heading"><div><div class="eyebrow">SERVICE DELIVERY</div><h1>服务与测试</h1><p>展示容器服务、API 契约及测试证据，不重复总览页摘要。</p></div></header>
           <div class="content-grid service-grid"><section class="panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">RUNTIME</div><h2>服务运行态</h2></div><div id="service-status-pill" class="status-pill neutral">—</div></div><div id="service-detail" class="detail-list"></div></section><section class="panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">TEST EVIDENCE</div><h2>测试与交付</h2></div><div id="evaluation-status-pill" class="status-pill neutral">—</div></div><div id="evaluation-detail" class="detail-list"></div></section></div>
+          <section class="panel api-test-panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">INTERACTIVE TEST</div><h2>调用部署服务</h2></div><div id="api-test-status" class="status-pill neutral">未测试</div></div><div class="test-grid"><label class="field"><span>服务地址</span><input id="api-test-url" type="url" placeholder="http://127.0.0.1:53387" autocomplete="off" /></label><label class="field"><span>接口</span><select id="api-test-endpoint" class="select-control"><option value="/predict_text">POST /predict_text</option><option value="/predict">POST /predict</option></select></label></div><label class="field"><span>输入文本</span><textarea id="api-test-input" rows="4" placeholder="输入一段文本，发送到已部署的推理服务。">The quick brown fox jumps over the lazy dog.</textarea></label><div class="api-test-actions"><button id="api-test-submit" class="ghost-button" type="button">发送测试</button><span id="api-test-hint" class="muted small">请求将通过本地 Dashboard 转发到服务。</span></div><div class="api-test-result"><div class="result-heading"><span>响应结果</span><span id="api-test-meta" class="muted small">尚未发起请求</span></div><pre id="api-test-output">尚未发起请求。</pre></div></section>
           <section class="panel api-contract-panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">API CONTRACT</div><h2>服务接口与推理链</h2></div></div><div class="api-contract-grid"><div class="api-contract-item"><code>GET /</code><span>健康检查 / 服务说明</span></div><div class="api-contract-item"><code>POST /predict_text</code><span>文本输入推理</span></div><div class="api-contract-item"><code>POST /predict</code><span>结构化输入推理</span></div><div class="api-contract-item pipeline-contract"><span>load_model</span><b>→</b><span>preprocess</span><b>→</b><span>inference</span><b>→</b><span>postprocess</span></div></div></section>
         </section>
 
