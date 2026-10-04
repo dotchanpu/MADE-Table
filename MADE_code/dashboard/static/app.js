@@ -299,8 +299,6 @@ function renderService() {
     detailRow("实际输出文件", actual.join(", ") || "尚未生成"),
     detailRow("证据状态", evaluation.status === "not_started" ? "尚未进入 ServiceDelivery" : evaluation.status),
   ].join("");
-  const testUrl = document.getElementById("api-test-url");
-  if (testUrl && !testUrl.dataset.edited && service.test_base_url) testUrl.value = service.test_base_url;
 }
 
 function formatTestOutput(value) {
@@ -308,30 +306,30 @@ function formatTestOutput(value) {
   return JSON.stringify(value, null, 2);
 }
 
-async function invokeApiTest() {
-  const button = document.getElementById("api-test-submit");
+const DEFAULT_TEST_URL = "http://127.0.0.1:53387";
+
+async function invokeApiTest(text, fileName) {
   const status = document.getElementById("api-test-status");
   const output = document.getElementById("api-test-output");
   const meta = document.getElementById("api-test-meta");
-  const targetUrl = document.getElementById("api-test-url").value.trim();
-  const endpoint = document.getElementById("api-test-endpoint").value;
-  const text = document.getElementById("api-test-input").value.trim();
-  if (!selectedRunId || !targetUrl || !text) {
+  const dropzone = document.getElementById("api-test-dropzone");
+  const targetUrl = dashboardData?.service?.test_base_url || DEFAULT_TEST_URL;
+  if (!selectedRunId || !text) {
     status.className = "status-pill failed";
     status.textContent = "缺少输入";
-    output.textContent = "请填写服务地址和输入文本。";
+    output.textContent = "没有读取到可用的测试输入文件。";
     return;
   }
-  button.disabled = true;
+  dropzone.setAttribute("aria-busy", "true");
   status.className = "status-pill running";
   status.textContent = "请求中";
   output.textContent = "正在等待服务响应…";
-  meta.textContent = `${endpoint} · 请求中`;
+  meta.textContent = `${fileName} · POST /predict_text · 请求中`;
   try {
     const response = await fetch(`/api/runs/${encodeURIComponent(selectedRunId)}/invoke`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ target_url: targetUrl, endpoint, text }),
+      body: JSON.stringify({ target_url: targetUrl, endpoint: "/predict_text", text }),
     });
     const payload = await response.json();
     const success = response.ok && payload.ok;
@@ -345,7 +343,32 @@ async function invokeApiTest() {
     meta.textContent = "Dashboard 请求异常";
     output.textContent = error.message;
   } finally {
-    button.disabled = false;
+    dropzone.removeAttribute("aria-busy");
+  }
+}
+
+async function handleTestFiles(fileList) {
+  const status = document.getElementById("api-test-status");
+  const fileLabel = document.getElementById("api-test-file");
+  const files = Array.from(fileList || []);
+  const candidate = files.find((file) => /(^|\/)input\/[^/]+$/i.test(file.webkitRelativePath || file.name))
+    || files.find((file) => !/(^|\/)(output|\.git)\//i.test(file.webkitRelativePath || file.name) && !/OUTPUT_FORMAT\.md$/i.test(file.name))
+    || files[0];
+  if (!candidate) {
+    status.className = "status-pill failed";
+    status.textContent = "未找到文件";
+    fileLabel.textContent = "请拖入 testfile 文件或 case 目录。";
+    return;
+  }
+  const fileName = candidate.webkitRelativePath || candidate.name;
+  fileLabel.textContent = `${fileName} · ${(candidate.size / 1024).toFixed(1)} KB`;
+  try {
+    const text = (await candidate.text()).trim();
+    await invokeApiTest(text, fileName);
+  } catch (error) {
+    status.className = "status-pill failed";
+    status.textContent = "读取失败";
+    document.getElementById("api-test-output").textContent = error.message;
   }
 }
 
@@ -419,10 +442,26 @@ document.getElementById("state-phase-select").addEventListener("change", (event)
   renderPhaseDetail();
   renderPipeline();
 });
-document.getElementById("api-test-url").addEventListener("input", (event) => {
-  event.target.dataset.edited = "true";
+const testDropzone = document.getElementById("api-test-dropzone");
+const testFilePicker = document.getElementById("api-test-file-picker");
+testDropzone.addEventListener("click", () => testFilePicker.click());
+testDropzone.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    testFilePicker.click();
+  }
 });
-document.getElementById("api-test-submit").addEventListener("click", invokeApiTest);
+testDropzone.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  testDropzone.classList.add("drag-over");
+});
+testDropzone.addEventListener("dragleave", () => testDropzone.classList.remove("drag-over"));
+testDropzone.addEventListener("drop", (event) => {
+  event.preventDefault();
+  testDropzone.classList.remove("drag-over");
+  handleTestFiles(event.dataTransfer.files);
+});
+testFilePicker.addEventListener("change", (event) => handleTestFiles(event.target.files));
 document.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => setPage(item.dataset.page)));
 window.addEventListener("hashchange", () => setPage(window.location.hash.replace(/^#\//, ""), false));
 setPage(window.location.hash.replace(/^#\//, ""), false);
