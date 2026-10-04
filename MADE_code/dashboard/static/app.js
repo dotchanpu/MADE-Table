@@ -81,10 +81,9 @@ function renderPipeline() {
   pipeline.innerHTML = [
     phaseNode("repoingest", 1),
     '<div class="phase-connector" aria-hidden="true"></div>',
-    `<div class="parallel-lane">
-      ${phaseNode("weightresolve", 2)}
-      ${phaseNode("dockersetup", 3)}
-    </div>`,
+    phaseNode("weightresolve", 2),
+    '<div class="phase-connector" aria-hidden="true"></div>',
+    phaseNode("dockersetup", 3),
     '<div class="phase-connector" aria-hidden="true"></div>',
     phaseNode("apiadaptation", 4),
     '<div class="phase-connector" aria-hidden="true"></div>',
