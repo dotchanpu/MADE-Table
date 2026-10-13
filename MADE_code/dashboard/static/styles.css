@@ -81,7 +81,7 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
 .phase-node.running .phase-state-mark, .phase-node.running .status-dot { background: var(--blue); animation: running-dot 1.4s ease-in-out infinite; }
 .partial .phase-state-mark { background: var(--amber); }
 .needs_redo .phase-state-mark, .failed .phase-state-mark { background: var(--red); }
-.phase-connector { position: relative; height: 2px; border-radius: 999px; background: #9da39e; }
+.phase-connector { position: relative; height: 2px; border-radius: 999px; background: linear-gradient(to right, #9da39e calc(100% - 8px), transparent calc(100% - 8px)); }
 .phase-connector::after { content: ""; position: absolute; top: 50%; right: 4px; width: 7px; height: 7px; border-right: 2px solid #858c86; border-bottom: 2px solid #858c86; border-radius: 1px; transform: translate(0, -50%) rotate(-45deg); }
 .parallel-group { width: 100%; display: grid; min-width: 0; gap: 7px; }
 .parallel-caption { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
@@ -174,7 +174,7 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
   .pipeline { grid-template-columns: 1fr; gap: 7px; }
   .phase-node { height: 90px; min-height: 90px; padding: 10px 12px 8px; }
   .phase-name { margin-top: 8px; }
-  .phase-connector { justify-self: center; width: 2px; height: 17px; }
+  .phase-connector { justify-self: center; width: 2px; height: 17px; background: linear-gradient(to bottom, #9da39e calc(100% - 8px), transparent calc(100% - 8px)); }
   .phase-connector::after { top: auto; right: auto; bottom: 3px; left: 50%; transform: translate(-50%, 0) rotate(45deg); }
   .parallel-group { width: 100%; }
   .detail-grid { flex: initial; grid-template-columns: 1fr 1fr; min-height: auto; }
