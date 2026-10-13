@@ -266,7 +266,12 @@ def _phase_state(
         present = [key for key in required if key in stored_keys]
         missing = [key for key in required if key not in present]
         phase_end = any(event.get("event") == "phase_end" and event.get("phase") == name for event in events)
-        if required and not missing:
+        checkpoint_needs_redo = bool(from_checkpoint and from_checkpoint.get("status") == "needs_redo" and not phase_end)
+        if checkpoint_needs_redo:
+            status = "needs_redo"
+            present = list(from_checkpoint.get("present_outputs", []) or [])
+            missing = list(from_checkpoint.get("missing_outputs", []) or [])
+        elif required and not missing:
             status = "completed"
         elif phase_end and not required:
             status = "completed"
@@ -516,6 +521,11 @@ def _list_run_ids() -> List[str]:
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(str(STATIC_ROOT / "index.html"))
+
+
+@app.get("/details")
+def details_index() -> FileResponse:
+    return FileResponse(str(STATIC_ROOT / "details.html"))
 
 
 @app.get("/api/health")

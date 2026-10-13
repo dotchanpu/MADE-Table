@@ -3,89 +3,77 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MADE · Deployment Console</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261004-parallel-stack" />
+    <title>MADE · 部署全流程仪表盘</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20261013-dashboard-compact-stages" />
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar">
-        <div class="brand-lockup">
-          <div class="brand-mark">M</div>
-          <div><div class="brand-name">MADE</div><div class="brand-subtitle">Model Deployment Engine</div></div>
-        </div>
-
-        <div class="sidebar-section-title">展示页面</div>
-        <nav id="page-nav" class="page-nav" aria-label="展示页面">
-          <button class="nav-item active" data-page="overview" type="button"><span>01</span>总览</button>
-          <button class="nav-item" data-page="state" type="button"><span>02</span>共享状态</button>
-          <button class="nav-item" data-page="coordination" type="button"><span>03</span>智能体协作</button>
-          <button class="nav-item" data-page="service" type="button"><span>04</span>服务与测试</button>
-        </nav>
-
-        <div class="sidebar-section-title">运行记录</div>
-        <div id="run-list" class="run-list" aria-live="polite"></div>
-
-        <div class="sidebar-footer">
-          <div class="runtime-chip"><span class="status-dot online"></span> Local runtime</div>
-          <div class="muted small">只读监控台 · 每 3 秒刷新</div>
-        </div>
-      </aside>
-
-      <main class="main-content">
-        <section class="page-view" data-view="overview">
-          <header class="topbar">
-            <div><div class="eyebrow">DEPLOYMENT WORKSPACE</div><h1 id="run-title">正在读取运行记录</h1></div>
-            <div class="topbar-actions">
-              <div id="provider-badge" class="badge neutral">Provider</div>
-              <div id="runtime-badge" class="badge neutral">Runtime</div>
-              <button id="refresh-button" class="ghost-button" type="button">刷新</button>
-            </div>
-          </header>
-
-          <section class="summary-row" id="summary-row">
-            <div class="summary-card accent-card"><div class="summary-label">当前阶段</div><div id="current-phase" class="summary-value">—</div><div id="current-status" class="summary-meta">—</div></div>
-            <div class="summary-card"><div class="summary-label">LLM 调用</div><div id="llm-calls" class="summary-value tabular">0</div><div id="llm-tokens" class="summary-meta">0 tokens</div></div>
-            <div class="summary-card"><div class="summary-label">协调干预</div><div id="interventions" class="summary-value tabular">0</div><div id="gate-policy" class="summary-meta">consistency gate</div></div>
-            <div class="summary-card"><div class="summary-label">容器状态</div><div id="container-status" class="summary-value">—</div><div id="container-image" class="summary-meta">—</div></div>
-          </section>
-
-          <section class="panel pipeline-panel">
-            <div class="panel-heading"><div><div class="eyebrow">ORCHESTRATION</div><h2>部署流水线</h2></div><div class="legend"><span><i class="legend-dot completed"></i>完成</span><span><i class="legend-dot running"></i>运行中</span><span><i class="legend-dot partial"></i>部分完成</span><span><i class="legend-dot not_started"></i>未开始</span></div></div>
-            <div id="pipeline" class="pipeline" aria-label="MADE deployment phases"></div>
-          </section>
-
-          <div class="content-grid">
-            <section class="panel phase-panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">CURRENT FOCUS</div><h2 id="overview-phase-title">当前阶段</h2></div><div id="overview-phase-status" class="status-pill neutral">—</div></div><div id="overview-phase-detail" class="phase-detail empty-state">正在读取阶段状态。</div></section>
-            <section class="panel coordination-panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">LATEST SIGNALS</div><h2>最近运行信号</h2></div><div id="overview-event-count" class="count-label">0 events</div></div><div id="overview-signals" class="signal-list"></div></section>
+    <main class="dashboard-shell">
+      <header class="dashboard-header">
+        <div class="header-leading">
+          <button id="back-button" class="back-button" type="button" aria-label="返回上一页"><span aria-hidden="true">←</span>返回</button>
+          <div class="header-title">
+            <div class="eyebrow">MADE · MODEL DEPLOYMENT ENGINE</div>
+            <h1>部署全流程仪表盘</h1>
           </div>
-        </section>
+        </div>
+        <div class="header-controls">
+          <label class="run-picker"><span>运行记录</span><select id="run-select" aria-label="选择运行记录"><option>读取中…</option></select></label>
+          <button id="refresh-button" class="refresh-button" type="button">刷新</button>
+        </div>
+      </header>
 
-        <section class="page-view" data-view="state" hidden>
-          <header class="page-heading"><div><div class="eyebrow">STATE INSPECTOR</div><h1>共享状态</h1><p>查看各阶段写入的变量、产物和依赖关系。</p></div></header>
-          <div class="content-grid">
-            <section class="panel state-panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">SHARED STATE</div><h2>共享状态账本</h2></div><div id="state-count" class="count-label">0 variables</div></div><div class="table-wrap"><table><thead><tr><th>变量</th><th>阶段</th><th>值预览</th><th>来源</th></tr></thead><tbody id="state-table"></tbody></table></div></section>
-            <section class="panel phase-panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">PHASE DETAIL</div><h2 id="phase-detail-title">阶段详情</h2></div><div class="phase-controls"><label class="phase-selector"><span>查看阶段</span><select id="state-phase-select" class="select-control" aria-label="选择阶段"><option value="repoingest">RepoIngest</option><option value="weightresolve">WeightResolve</option><option value="dockersetup">DockerSetUp</option><option value="apiadaptation">APIAdaptation</option><option value="servicedelivery">ServiceDelivery</option></select></label><div id="phase-detail-status" class="status-pill neutral">—</div></div></div><div id="phase-detail" class="phase-detail empty-state">选择阶段查看产物。</div></section>
+      <section class="run-context" aria-label="当前运行概况">
+        <div class="run-identity"><span class="context-label">当前运行</span><strong id="run-title">正在读取运行记录</strong></div>
+        <div class="context-metrics">
+          <div class="context-metric"><span class="context-label">整体状态</span><span id="run-status" class="status-pill neutral">读取中</span></div>
+          <div class="context-metric"><span class="context-label">模型服务</span><strong id="provider-badge">—</strong></div>
+          <div class="context-metric"><span class="context-label">容器</span><strong id="container-status">—</strong></div>
+          <div class="context-metric"><span class="context-label">最近更新</span><strong id="last-updated">—</strong></div>
+        </div>
+      </section>
+
+      <section class="panel pipeline-panel" aria-labelledby="pipeline-title">
+        <div class="section-heading">
+          <div><div class="eyebrow">LIVE ORCHESTRATION</div><h2 id="pipeline-title">总体流程</h2></div>
+          <div class="legend" aria-label="阶段状态图例">
+            <span><i class="legend-mark completed"></i>成功</span>
+            <span><i class="legend-mark running"></i>进行中</span>
+            <span><i class="legend-mark partial"></i>部分完成</span>
+            <span><i class="legend-mark needs_redo"></i>回退重跑</span>
+            <span><i class="legend-mark not_started"></i>未开始</span>
           </div>
-          <section class="panel ledger-panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">PHASE LEDGER</div><h2>阶段产物账本</h2></div><div class="count-label">required outputs</div></div><div class="table-wrap"><table><thead><tr><th>阶段</th><th>状态</th><th>已产出</th><th>缺失产物</th></tr></thead><tbody id="phase-ledger"></tbody></table></div></section>
-        </section>
+        </div>
+        <div id="rollback-banner" class="rollback-banner" hidden></div>
+        <div id="pipeline" class="pipeline" aria-label="MADE 部署阶段流程"></div>
+        <div class="pipeline-footnote"><span class="live-indicator"></span><span>流程状态每 3 秒同步一次</span><span id="pipeline-progress" class="progress-label">等待运行数据</span></div>
+      </section>
 
-        <section class="page-view" data-view="coordination" hidden>
-          <header class="page-heading"><div><div class="eyebrow">AGENT COORDINATION</div><h1>智能体协作</h1><p>追踪 PM、EM、工具调用与一致性门控的协作过程。</p></div></header>
-          <div class="content-grid bottom-grid"><section class="panel timeline-panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">EXECUTION TRACE</div><h2>执行时间线</h2></div><select id="event-filter" class="select-control" aria-label="事件筛选"><option value="all">全部事件</option><option value="llm_call">LLM 调用</option><option value="step_end">工具步骤</option><option value="gate_decision">Gate 决策</option><option value="variable_stored">状态产出</option><option value="phase_end">阶段结束</option></select></div><div id="timeline" class="timeline" aria-live="polite"></div></section>
-            <section class="panel coordination-panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">CONSISTENCY GATE</div><h2>一致性门控</h2></div><div id="coordination-mode" class="status-pill neutral">consistency</div></div><div class="gate-grid" id="gate-grid"></div><div class="coordination-note">依据 required outputs 判断提议是否需要干预。</div></section></div>
-          <div class="content-grid coordination-detail-grid"><section class="panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">ACTOR ACTIVITY</div><h2>角色活动</h2></div></div><div id="actor-summary" class="actor-summary"></div></section><section class="panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">INTERVENTION TRACE</div><h2>干预说明</h2></div></div><div id="intervention-summary" class="empty-state">暂无干预记录。</div></section></div>
-        </section>
+      <section class="detail-grid" aria-label="当前阶段详情与触发事件">
+        <article class="panel detail-card current-card">
+          <div class="card-heading"><div><div class="eyebrow">CURRENT STAGE</div><h2>当前阶段</h2></div><span id="current-stage-status" class="status-pill neutral">—</span></div>
+          <div class="current-stage-content">
+            <div id="current-stage-index" class="stage-index">—</div>
+            <div id="current-stage-name" class="current-stage-name">等待阶段状态</div>
+            <p id="current-stage-description" class="current-stage-description">运行开始后将在此显示当前执行阶段。</p>
+          </div>
+          <div id="current-stage-note" class="card-note">尚无阶段事件</div>
+        </article>
 
-        <section class="page-view" data-view="service" hidden>
-          <header class="page-heading"><div><div class="eyebrow">SERVICE DELIVERY</div><h1>服务与测试</h1><p>展示容器服务、API 契约及测试证据，不重复总览页摘要。</p></div></header>
-          <div class="content-grid service-grid"><section class="panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">RUNTIME</div><h2>服务运行态</h2></div><div id="service-status-pill" class="status-pill neutral">—</div></div><div id="service-detail" class="detail-list"></div></section><section class="panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">TEST EVIDENCE</div><h2>测试与交付</h2></div><div id="evaluation-status-pill" class="status-pill neutral">—</div></div><div id="evaluation-detail" class="detail-list"></div></section></div>
-          <section class="panel api-test-panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">INTERACTIVE TEST</div><h2>提交测试样例</h2></div><div id="api-test-status" class="status-pill neutral">未测试</div></div><div id="api-test-dropzone" class="file-dropzone" role="button" tabindex="0" aria-label="拖入测试文件或测试目录"><input id="api-test-file-picker" type="file" webkitdirectory directory multiple accept=".txt,.json,.csv,.md,text/*" /><div class="dropzone-mark">+</div><div><strong>把 testfile 或 case 目录拖到这里</strong><span>系统会优先读取 input/ 目录中的输入文件，并自动调用部署服务。</span></div></div><div id="api-test-file" class="file-selection">尚未选择测试文件</div><div class="api-test-actions"><span id="api-test-hint" class="muted small">固定调用 POST /predict_text · 无需手动填写请求参数</span></div><div class="api-test-result"><div class="result-heading"><span>响应结果</span><span id="api-test-meta" class="muted small">尚未发起请求</span></div><pre id="api-test-output">尚未发起请求。</pre></div></section>
-          <section class="panel api-contract-panel"><div class="panel-heading compact-heading"><div><div class="eyebrow">API CONTRACT</div><h2>服务接口与推理链</h2></div></div><div class="api-contract-grid"><div class="api-contract-item"><code>GET /</code><span>健康检查 / 服务说明</span></div><div class="api-contract-item"><code>POST /predict_text</code><span>文本输入推理</span></div><div class="api-contract-item"><code>POST /predict</code><span>结构化输入推理</span></div><div class="api-contract-item pipeline-contract"><span>load_model</span><b>→</b><span>preprocess</span><b>→</b><span>inference</span><b>→</b><span>postprocess</span></div></div></section>
-        </section>
+        <article class="panel detail-card artifact-card">
+          <div class="card-heading"><div><div class="eyebrow">ARTIFACT STATUS</div><h2>产物状态</h2></div><span id="artifact-count" class="count-label">0 项</span></div>
+          <div id="artifact-stage" class="artifact-stage">等待阶段状态</div>
+          <div id="artifact-summary" class="artifact-summary"></div>
+          <div id="artifact-list" class="artifact-list"><div class="empty-message">当前阶段的产物状态将在此显示。</div></div>
+        </article>
 
-        <footer class="page-footer"><span>MADE local deployment console</span><span id="last-updated">—</span></footer>
-      </main>
-    </div>
-    <script src="/static/app.js?v=20261004-parallel-stack"></script>
+        <article class="panel detail-card triggers-card">
+          <div class="card-heading"><div><div class="eyebrow">TRIGGER EVENTS</div><h2>触发事件</h2></div><span id="trigger-count" class="count-label">0 条</span></div>
+          <div id="trigger-events" class="trigger-events"><div class="empty-message">正在读取事件记录。</div></div>
+        </article>
+      </section>
+
+      <footer class="dashboard-footer"><span>MADE 本地部署监控</span><span>事件来源：流水线运行日志</span></footer>
+    </main>
+    <script src="/static/app.js?v=20261013-dashboard-details-return"></script>
   </body>
 </html>
