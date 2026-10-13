@@ -83,7 +83,6 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
 .needs_redo .phase-state-mark, .failed .phase-state-mark { background: var(--red); }
 .phase-connector { position: relative; height: 2px; border-radius: 999px; background: #9da39e; }
 .phase-connector::after { content: ""; position: absolute; top: 50%; right: 4px; width: 7px; height: 7px; border-right: 2px solid #858c86; border-bottom: 2px solid #858c86; border-radius: 1px; transform: translate(0, -50%) rotate(-45deg); }
-.pipeline.is-running .phase-connector::after { animation: arrow-travel 1.15s ease-in-out infinite; }
 .parallel-group { width: 100%; display: grid; min-width: 0; gap: 7px; }
 .parallel-caption { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
 .parallel-lane { position: relative; display: grid; gap: 7px; min-width: 0; }
@@ -142,14 +141,8 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
   50% { transform: scale(1.012); box-shadow: 0 0 0 4px rgb(36 91 215 / 10%); }
 }
 @keyframes running-dot { 0%, 100% { transform: scale(.86); opacity: .68; } 50% { transform: scale(1.16); opacity: 1; } }
-@keyframes arrow-travel {
-  0%, 100% { transform: translate(-2px, -50%) rotate(-45deg); border-color: #858c86; opacity: .72; }
-  50% { transform: translate(0, -50%) rotate(-45deg); border-color: var(--blue); opacity: 1; }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .phase-node.running, .phase-node.running .phase-state-mark, .phase-node.running .status-dot,
-  .pipeline.is-running .phase-connector::after { animation: none !important; }
+  .phase-node.running, .phase-node.running .phase-state-mark, .phase-node.running .status-dot { animation: none !important; }
 }
 
 @media (min-width: 1500px) and (min-height: 850px) {
@@ -183,16 +176,10 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
   .phase-name { margin-top: 8px; }
   .phase-connector { justify-self: center; width: 2px; height: 17px; }
   .phase-connector::after { top: auto; right: auto; bottom: 3px; left: 50%; transform: translate(-50%, 0) rotate(45deg); }
-  .pipeline.is-running .phase-connector::after { animation-name: arrow-travel-vertical; }
   .parallel-group { width: 100%; }
   .detail-grid { flex: initial; grid-template-columns: 1fr 1fr; min-height: auto; }
   .triggers-card { grid-column: 1 / -1; min-height: 300px; }
   .artifact-card, .current-card { min-height: 245px; }
-}
-
-@keyframes arrow-travel-vertical {
-  0%, 100% { transform: translate(-50%, -2px) rotate(45deg); border-color: #858c86; opacity: .72; }
-  50% { transform: translate(-50%, 0) rotate(45deg); border-color: var(--blue); opacity: 1; }
 }
 
 @media (max-width: 540px) {

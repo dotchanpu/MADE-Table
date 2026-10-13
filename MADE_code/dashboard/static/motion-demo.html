@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MADE · 流水线动效预览</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261013-arrowhead-motion" />
+    <link rel="stylesheet" href="/static/styles.css?v=20261013-stage-motion-only" />
     <style>
       .motion-demo-shell { max-width: 1600px; margin: 0 auto; }
       .motion-demo-shell .back-button { color: inherit; text-decoration: none; }
@@ -46,7 +46,7 @@
           </div>
         </div>
 
-        <div class="pipeline is-running" aria-label="模拟部署阶段流程">
+        <div class="pipeline" aria-label="模拟部署阶段流程">
           <div class="phase-node completed"><div class="phase-index">01</div><div class="phase-name">RepoIngest</div><div class="phase-state"><span class="phase-state-mark"></span>已完成</div></div>
           <div class="phase-connector" aria-hidden="true"></div>
           <div class="parallel-group" aria-label="WeightResolve 与 DockerSetUp 并行阶段">
@@ -62,7 +62,7 @@
           <div class="phase-node not_started"><div class="phase-index">05</div><div class="phase-name">ServiceDelivery</div><div class="phase-state"><span class="phase-state-mark"></span>未开始</div></div>
         </div>
 
-        <div class="pipeline-footnote"><span class="live-indicator"></span><span>蓝色阶段卡片呼吸高亮 · 状态点脉动 · 箭头轻移并变色</span><span class="progress-label">模拟运行中</span></div>
+        <div class="pipeline-footnote"><span class="live-indicator"></span><span>蓝色阶段卡片呼吸高亮 · 状态点脉动</span><span class="progress-label">模拟运行中</span></div>
         <p class="demo-explainer"><strong>这是动效样例，不是真实部署记录。</strong>动效只应用于“运行中”阶段；系统或浏览器设置了“减少动态效果”时，动画会自动关闭。</p>
       </section>
     </main>

@@ -42,7 +42,6 @@ function renderPipeline() {
     `<div class="parallel-group"><div class="parallel-caption">并行执行</div><div class="parallel-lane">${phaseNode("weightresolve", 2)}${phaseNode("dockersetup", 3)}</div></div>`,
     '<div class="phase-connector" aria-hidden="true"></div>', phaseNode("apiadaptation", 4),
     '<div class="phase-connector" aria-hidden="true"></div>', phaseNode("servicedelivery", 5)].join("");
-  pipeline.classList.toggle("is-running", (dashboardData?.phases || []).some((phase) => phase.status === "running"));
   pipeline.querySelectorAll("[data-phase]").forEach((node) => node.addEventListener("click", () => {
     selectedPhase = node.dataset.phase;
     renderPipeline();

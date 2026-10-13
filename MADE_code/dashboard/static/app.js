@@ -94,7 +94,6 @@ function renderPipeline(rollbacks) {
     '<div class="phase-connector" aria-hidden="true"></div>',
     phaseNode("servicedelivery", 5, rollbacks),
   ].join("");
-  pipeline.classList.toggle("is-running", (dashboardData?.phases || []).some((phase) => phase.status === "running"));
 
   const banner = document.getElementById("rollback-banner");
   const latest = rollbacks[rollbacks.length - 1];
