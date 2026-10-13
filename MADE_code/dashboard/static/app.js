@@ -81,7 +81,8 @@ function phaseNode(name, index, rollbacks) {
 }
 
 function renderPipeline(rollbacks) {
-  document.getElementById("pipeline").innerHTML = [
+  const pipeline = document.getElementById("pipeline");
+  pipeline.innerHTML = [
     phaseNode("repoingest", 1, rollbacks),
     '<div class="phase-connector" aria-hidden="true"></div>',
     `<div class="parallel-group" aria-label="WeightResolve 与 DockerSetUp 并行阶段">
@@ -93,6 +94,7 @@ function renderPipeline(rollbacks) {
     '<div class="phase-connector" aria-hidden="true"></div>',
     phaseNode("servicedelivery", 5, rollbacks),
   ].join("");
+  pipeline.classList.toggle("is-running", (dashboardData?.phases || []).some((phase) => phase.status === "running"));
 
   const banner = document.getElementById("rollback-banner");
   const latest = rollbacks[rollbacks.length - 1];

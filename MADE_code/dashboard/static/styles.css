@@ -76,11 +76,14 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
 .phase-node.running .phase-state { border-color: #d1dcf6; background: #f2f6ff; color: var(--blue); }
 .phase-node.partial .phase-state { border-color: #eadcbe; background: #fff9ee; color: var(--amber); }
 .phase-node.needs_redo .phase-state, .phase-node.failed .phase-state { border-color: #ecd1ce; background: #fff5f3; color: var(--red); }
+.phase-node.running { z-index: 1; border-color: #8aa9ed; animation: active-phase 2.6s ease-in-out infinite; transform-origin: center; }
 .completed .phase-state-mark { background: var(--green); }
-.running .phase-state-mark { background: var(--blue); animation: pulse 1.4s ease-in-out infinite; }
+.phase-node.running .phase-state-mark, .phase-node.running .status-dot { background: var(--blue); animation: running-dot 1.4s ease-in-out infinite; }
 .partial .phase-state-mark { background: var(--amber); }
 .needs_redo .phase-state-mark, .failed .phase-state-mark { background: var(--red); }
 .phase-connector { position: relative; height: 2px; border-radius: 999px; background: #9da39e; }
+.phase-connector::before { position: absolute; top: 0; left: -40%; width: 40%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, transparent, var(--blue), transparent); content: ""; opacity: 0; }
+.pipeline.is-running .phase-connector::before { opacity: 1; animation: connector-flow 1.5s linear infinite; }
 .phase-connector::after { content: ""; position: absolute; top: 50%; right: 1px; width: 7px; height: 7px; border-right: 2px solid #858c86; border-bottom: 2px solid #858c86; border-radius: 1px; transform: translateY(-50%) rotate(-45deg); }
 .parallel-group { width: 100%; display: grid; min-width: 0; gap: 7px; }
 .parallel-caption { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
@@ -135,7 +138,17 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
 .dashboard-footer { justify-content: space-between; min-height: 18px; color: var(--muted); font-size: 9px; letter-spacing: .04em; }
 .error-message { color: var(--red); }
 
-@keyframes pulse { 50% { opacity: .35; } }
+@keyframes active-phase {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgb(36 91 215 / 0%); }
+  50% { transform: scale(1.012); box-shadow: 0 0 0 4px rgb(36 91 215 / 10%); }
+}
+@keyframes running-dot { 0%, 100% { transform: scale(.86); opacity: .68; } 50% { transform: scale(1.16); opacity: 1; } }
+@keyframes connector-flow { to { transform: translateX(350%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .phase-node.running, .phase-node.running .phase-state-mark, .phase-node.running .status-dot,
+  .pipeline.is-running .phase-connector::before { animation: none !important; }
+}
 
 @media (min-width: 1500px) and (min-height: 850px) {
   .dashboard-shell { min-height: 100vh; }
@@ -167,12 +180,16 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
   .phase-node { height: 90px; min-height: 90px; padding: 10px 12px 8px; }
   .phase-name { margin-top: 8px; }
   .phase-connector { justify-self: center; width: 2px; height: 17px; }
+  .phase-connector::before { top: -40%; left: 0; width: 100%; height: 40%; background: linear-gradient(180deg, transparent, var(--blue), transparent); }
+  .pipeline.is-running .phase-connector::before { animation-name: connector-flow-vertical; }
   .phase-connector::after { top: auto; right: auto; bottom: 1px; left: 50%; transform: translateX(-50%) rotate(45deg); }
   .parallel-group { width: 100%; }
   .detail-grid { flex: initial; grid-template-columns: 1fr 1fr; min-height: auto; }
   .triggers-card { grid-column: 1 / -1; min-height: 300px; }
   .artifact-card, .current-card { min-height: 245px; }
 }
+
+@keyframes connector-flow-vertical { to { transform: translateY(350%); } }
 
 @media (max-width: 540px) {
   .dashboard-shell { gap: 10px; padding: 12px; }
