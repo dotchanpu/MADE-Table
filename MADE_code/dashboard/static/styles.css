@@ -218,8 +218,8 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
 .run-picker { border-bottom: 0; }
 .panel { box-shadow: none; }
 .card-heading, .artifact-row, .trigger-row { border: 0; }
-.artifact-row { padding-block: 9px; }
-.trigger-row { padding-block: 8px; }
+.artifact-row { padding-block: 5px; }
+.trigger-row { padding-block: 5px; }
 .back-button, .refresh-button { background: var(--panel-soft); }
 .phase-node { background: #fff; }
 .phase-node.completed { background: #f8fbf8; }
@@ -229,5 +229,5 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
 .phase-state { padding-inline: 0; background: transparent !important; }
 .status-pill { padding-inline: 0; background: transparent !important; }
 .artifact-row.missing .artifact-indicator { background: var(--amber); }
-.artifact-row + .artifact-row { margin-top: 3px; }
-.trigger-row + .trigger-row { margin-top: 2px; }
+.artifact-row + .artifact-row { margin-top: 0; }
+.trigger-row + .trigger-row { margin-top: 0; }
