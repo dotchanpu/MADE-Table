@@ -22,6 +22,24 @@ function formatTime(value) {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+function formatDuration(totalSeconds) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  if (hours) return `${hours}小时${String(minutes).padStart(2, "0")}分`;
+  if (minutes) return `${minutes}分${String(remainder).padStart(2, "0")}秒`;
+  return `${remainder}秒`;
+}
+
+function runDurationSeconds(events, status) {
+  const times = events.map((event) => Date.parse(event.timestamp)).filter(Number.isFinite);
+  if (!times.length) return null;
+  const start = Math.min(...times);
+  const end = status === "running" ? Date.now() : Math.max(...times);
+  return Math.max(0, (end - start) / 1000);
+}
+
 function statusLabel(status) {
   return ({ completed: "成功", running: "进行中", partial: "部分完成", not_started: "未开始", needs_redo: "回退重跑", failed: "失败", checkpointed: "检查点" })[status] || status || "未知";
 }
@@ -129,16 +147,44 @@ function renderArtifacts() {
 
 function eventTitle(event) {
   if (event.event === "rollback") return `阶段回退 · ${phaseLabels[event.to] || event.to}`;
+  if (event.event === "llm_call") return `模型调用 · ${phaseLabels[event.phase] || event.phase || "系统"}`;
+  if (event.event === "gate_stats") return `一致性门控统计 · ${phaseLabels[event.phase] || event.phase || "系统"}`;
   if (event.event === "gate_decision") return event.intervene ? "一致性门控 · 触发干预" : "一致性门控 · 放行";
   if (event.event === "phase_end") return `阶段完成 · ${phaseLabels[event.phase] || event.phase}`;
   if (event.event === "variable_stored") return `产物生成 · ${event.variable || "共享状态"}`;
   if (event.event === "pipeline_end") return "总体流程完成";
+  if (event.event === "step_end" && event.actor === "tool") return "工具执行完成";
   if (event.event === "step_end") return `执行步骤完成 · ${event.step || event.actor || "步骤"}`;
   return event.event || "运行事件";
 }
 
+function eventTool(event) {
+  if (event.event === "gate_decision" && event.proposed_tool) return { name: event.proposed_tool, kind: "候选工具" };
+  if (event.producer_tool) return { name: event.producer_tool, kind: "执行工具" };
+  if (event.event === "step_end" && event.actor === "tool" && event.step) return { name: event.step, kind: "执行工具" };
+  if (event.event === "llm_call" && event.response_preview) {
+    const match = String(event.response_preview).match(/"tool_name"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/);
+    if (match) {
+      try { return { name: JSON.parse(`"${match[1]}"`), kind: "模型选择" }; }
+      catch { return { name: match[1], kind: "模型选择" }; }
+    }
+  }
+  return null;
+}
+
+function toolBadge(event) {
+  const tool = eventTool(event);
+  if (!tool) return "";
+  return `<span class="trigger-tool" title="${escapeHtml(tool.kind)}" aria-label="${escapeHtml(tool.kind)}：${escapeHtml(tool.name)}">
+    <svg class="tool-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>${escapeHtml(tool.name)}</span>
+  </span>`;
+}
+
 function eventMeta(event) {
   if (event.event === "rollback") return event.from ? `${phaseLabels[event.from] || event.from} 回退至 ${phaseLabels[event.to] || event.to}` : "检查点标记此阶段需要重跑";
+  if (event.event === "llm_call") return `${event.backend || "模型服务"}${event.model ? ` · ${event.model}` : ""} · ${event.call_type || "调用"} · ${Number(event.total_tokens || 0).toLocaleString("zh-CN")} tokens · ${Number(event.duration_s || 0).toFixed(2)} 秒`;
+  if (event.event === "gate_stats") return `干预 ${event.interventions || 0} · 停滞 ${event.stall || 0} · 冗余 ${event.redundant || 0} · 过早 ${event.premature || 0}`;
   if (event.event === "gate_decision") return `${event.proposed_tool || "工具"} · ${(event.fired || []).join("、") || (event.intervene ? "门控条件满足" : "无触发条件")}`;
   if (event.event === "variable_stored") return `${event.storage || "状态存储"} · ${event.value_summary || "已写入共享状态"}`;
   if (event.event === "phase_end") return `${Number(event.duration_s || 0).toFixed(2)} 秒 · ${event.llm_calls || 0} 次模型调用`;
@@ -153,28 +199,34 @@ function renderTriggers(rollbacks) {
   const rollbacksById = new Map(rollbacks.filter((item) => item.id.startsWith("rollback-")).map((item) => [Number(item.id.slice("rollback-".length)), item]));
   for (const event of events) {
     if (rollbacksById.has(event.id)) inserted.push(rollbacksById.get(event.id));
-    if (["gate_decision", "phase_end", "variable_stored", "pipeline_end", "step_end"].includes(event.event)) inserted.push(event);
+    if (event.event !== "rollback") inserted.push(event);
   }
   for (const checkpointRollback of rollbacks.filter((item) => item.checkpoint)) inserted.unshift(checkpointRollback);
-  const recent = inserted.slice(-14).reverse();
-  document.getElementById("trigger-count").textContent = `${recent.length} 条`;
-  document.getElementById("trigger-events").innerHTML = recent.length ? recent.map((event) => `<div class="trigger-row ${event.event === "rollback" ? "rollback" : ""}">
+  const allEvents = inserted.reverse();
+  document.getElementById("trigger-count").textContent = `${allEvents.length} 条`;
+  document.getElementById("trigger-events").innerHTML = allEvents.length ? allEvents.map((event) => `<div class="trigger-row ${event.event === "rollback" ? "rollback" : ""}">
     <time class="trigger-time">${escapeHtml(formatTime(event.timestamp))}</time><span class="trigger-marker" aria-hidden="true"></span>
-    <div class="trigger-copy"><div class="trigger-title">${escapeHtml(eventTitle(event))}</div><div class="trigger-meta">${escapeHtml(eventMeta(event))}</div></div>
-  </div>`).join("") : '<div class="empty-message">暂无触发事件。运行推进后，阶段完成、产物写入和门控决策会实时显示在这里。</div>';
+    <div class="trigger-copy"><div class="trigger-title-line"><div class="trigger-title">${escapeHtml(eventTitle(event))}</div>${toolBadge(event)}</div><div class="trigger-meta">${escapeHtml(eventMeta(event))}</div></div>
+  </div>`).join("") : '<div class="empty-message">暂无全流程事件。运行推进后，各阶段活动会实时显示在这里。</div>';
 }
 
 function renderDashboard() {
   const run = dashboardData?.run || {};
   const service = dashboardData?.service || {};
+  const events = dashboardData?.events || [];
   document.getElementById("run-title").textContent = run.id || "MADE Deployment Run";
   const runStatus = document.getElementById("run-status");
   runStatus.className = `status-pill ${run.status || "neutral"}`;
   runStatus.textContent = statusLabel(run.status);
+  const duration = runDurationSeconds(events, run.status);
+  document.getElementById("run-duration").textContent = duration === null ? "—" : formatDuration(duration);
+  const totalTokens = dashboardData?.totals?.total_tokens ?? events
+    .filter((event) => event.event === "llm_call")
+    .reduce((sum, event) => sum + Number(event.total_tokens || 0), 0);
+  document.getElementById("run-tokens").textContent = Number(totalTokens).toLocaleString("zh-CN");
   document.getElementById("provider-badge").textContent = `${run.provider || "模型服务未记录"}${run.model ? ` · ${run.model}` : ""}`;
   document.getElementById("container-status").textContent = service.container_status || "未启动";
   document.getElementById("last-updated").textContent = run.updated_at ? formatTime(run.updated_at) : "—";
-  const events = dashboardData?.events || [];
   const rollbacks = findRollbacks(events);
   renderPipeline(rollbacks);
   renderArtifacts();

@@ -122,8 +122,12 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
 .trigger-row.rollback .trigger-title { color: var(--red); }
 .trigger-row:last-child .trigger-marker::before { display: none; }
 .trigger-copy { min-width: 0; }
+.trigger-title-line { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 7px; }
 .trigger-title { font-size: 12px; font-weight: 720; line-height: 1.4; overflow-wrap: anywhere; }
 .trigger-meta { margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.trigger-tool { max-width: 100%; display: inline-flex; align-items: center; gap: 4px; padding: 2px 5px; border-radius: 4px; background: var(--panel-soft); color: #454b46; font-size: 8px; line-height: 1.25; }
+.tool-icon { width: 9px; height: 9px; flex: 0 0 9px; color: var(--muted); }
+.trigger-tool span { min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 650; }
 .empty-message { padding: 17px 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .dashboard-footer { justify-content: space-between; min-height: 18px; color: var(--muted); font-size: 9px; letter-spacing: .04em; }
 .error-message { color: var(--red); }
@@ -208,3 +212,22 @@ h2 { font-size: 17px; letter-spacing: -.025em; }
 @media (min-width: 821px) and (max-width: 1100px) and (max-height: 760px) {
   .phase-node { height: 64px; min-height: 64px; padding: 5px 9px; }
 }
+
+/* Borderless visual pass: preserve hierarchy through spacing, tint, and status color. */
+.back-button, .refresh-button, .panel, .phase-node, .phase-state, .status-pill, .artifact-indicator { border: 0; }
+.run-picker { border-bottom: 0; }
+.panel { box-shadow: none; }
+.card-heading, .artifact-row, .trigger-row { border: 0; }
+.artifact-row { padding-block: 9px; }
+.trigger-row { padding-block: 8px; }
+.back-button, .refresh-button { background: var(--panel-soft); }
+.phase-node { background: #fff; }
+.phase-node.completed { background: #f8fbf8; }
+.phase-node.running { background: #f2f6ff; }
+.phase-node.partial { background: #fffaf1; }
+.phase-node.needs_redo, .phase-node.failed { background: #fff6f5; }
+.phase-state { padding-inline: 0; background: transparent !important; }
+.status-pill { padding-inline: 0; background: transparent !important; }
+.artifact-row.missing .artifact-indicator { background: var(--amber); }
+.artifact-row + .artifact-row { margin-top: 3px; }
+.trigger-row + .trigger-row { margin-top: 2px; }

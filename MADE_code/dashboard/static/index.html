@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MADE · 部署全流程仪表盘</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261014-all-phase-artifacts" />
+    <link rel="stylesheet" href="/static/styles.css?v=20261014-inline-tool-tags" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -29,6 +29,8 @@
             <div class="run-identity"><span class="context-label">当前运行</span><strong id="run-title">正在读取运行记录</strong></div>
             <div class="context-metrics">
               <div class="context-metric"><span class="context-label">整体状态</span><span id="run-status" class="status-pill neutral">读取中</span></div>
+              <div class="context-metric"><span class="context-label">运行时长</span><strong id="run-duration">—</strong></div>
+              <div class="context-metric"><span class="context-label">Token 消耗</span><strong id="run-tokens">—</strong></div>
               <div class="context-metric"><span class="context-label">模型服务</span><strong id="provider-badge">—</strong></div>
               <div class="context-metric"><span class="context-label">容器</span><strong id="container-status">—</strong></div>
               <div class="context-metric"><span class="context-label">最近更新</span><strong id="last-updated">—</strong></div>
@@ -54,6 +56,6 @@
 
       <footer class="dashboard-footer"><span>MADE 本地部署监控</span><span>事件来源：流水线运行日志</span></footer>
     </main>
-    <script src="/static/app.js?v=20261014-all-phase-artifacts"></script>
+    <script src="/static/app.js?v=20261014-inline-tool-tags"></script>
   </body>
 </html>
