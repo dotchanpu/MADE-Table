@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MADE · 部署全流程仪表盘</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261014-transparent-pipeline-v2" />
+    <link rel="stylesheet" href="/static/styles.css?v=20261014-events-primary" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -34,18 +34,11 @@
 
       <section class="pipeline-panel" aria-labelledby="pipeline-title">
         <div class="section-heading">
-          <div><div class="eyebrow">LIVE ORCHESTRATION</div><h2 id="pipeline-title">总体流程</h2></div>
-          <div class="legend" aria-label="阶段状态图例">
-            <span><i class="legend-mark completed"></i>成功</span>
-            <span><i class="legend-mark running"></i>进行中</span>
-            <span><i class="legend-mark partial"></i>部分完成</span>
-            <span><i class="legend-mark needs_redo"></i>回退重跑</span>
-            <span><i class="legend-mark not_started"></i>未开始</span>
-          </div>
+          <h2 id="pipeline-title">总体流程</h2>
         </div>
         <div id="rollback-banner" class="rollback-banner" hidden></div>
         <div id="pipeline" class="pipeline" aria-label="MADE 部署阶段流程"></div>
-        <div class="pipeline-footnote"><span class="live-indicator"></span><span>流程状态每 3 秒同步一次</span><span id="pipeline-progress" class="progress-label">等待运行数据</span></div>
+        <div class="pipeline-footnote"><span id="pipeline-progress" class="progress-label">等待运行数据</span></div>
       </section>
 
       <section class="detail-grid" aria-label="当前阶段详情与触发事件">
