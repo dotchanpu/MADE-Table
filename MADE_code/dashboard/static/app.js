@@ -6,14 +6,6 @@ const phaseLabels = {
   servicedelivery: "ServiceDelivery",
 };
 
-const phaseDescriptions = {
-  repoingest: "读取论文或 GitHub 输入，克隆仓库并确定部署任务。",
-  weightresolve: "解析并准备模型权重和辅助文件。",
-  dockersetup: "生成 Docker 配置、构建镜像并启动运行容器。",
-  apiadaptation: "将原始推理入口适配为可调用的模型服务。",
-  servicedelivery: "启动 API、执行测试并整理交付文档。",
-};
-
 const phaseRank = { repoingest: 0, weightresolve: 1, dockersetup: 1, apiadaptation: 2, servicedelivery: 3 };
 const phaseOrder = Object.keys(phaseLabels);
 let selectedRunId = new URLSearchParams(window.location.search).get("run") || null;
@@ -95,83 +87,44 @@ function renderPipeline(rollbacks) {
     phaseNode("servicedelivery", 5, rollbacks),
   ].join("");
 
-  const banner = document.getElementById("rollback-banner");
-  const latest = rollbacks[rollbacks.length - 1];
-  if (!latest) {
-    banner.hidden = true;
-    banner.innerHTML = "";
-  } else {
-    const from = latest.from ? phaseLabels[latest.from] : "检查点";
-    banner.innerHTML = `<strong>检测到回退</strong><span>${escapeHtml(from)} → ${escapeHtml(phaseLabels[latest.to] || latest.to)} · 共 ${rollbacks.length} 次回退记录</span>`;
-    banner.hidden = false;
-  }
-
   const completed = (dashboardData?.phases || []).filter((phase) => phase.status === "completed").length;
   const active = (dashboardData?.phases || []).filter((phase) => phase.status === "running").length;
   document.getElementById("pipeline-progress").textContent = `${completed}/5 阶段成功${active ? ` · ${active} 个进行中` : ""}${rollbacks.length ? ` · 回退 ${rollbacks.length} 次` : ""}`;
 }
 
-function currentPhases() {
-  const phases = dashboardData?.phases || [];
-  const running = phases.filter((phase) => phase.status === "running");
-  if (running.length) return running;
-  const events = dashboardData?.events || [];
-  const latestPhase = [...events].reverse().find((event) => phaseRank[event.phase] !== undefined)?.phase || dashboardData?.run?.latest_phase;
-  if (latestPhase) return [phaseState(latestPhase)];
-  const redo = phases.filter((phase) => phase.status === "needs_redo");
-  return redo.slice(0, 1);
-}
-
-function renderCurrentAndArtifacts() {
-  const phases = currentPhases();
-  const currentStatus = document.getElementById("current-stage-status");
-  const currentName = document.getElementById("current-stage-name");
-  const currentIndex = document.getElementById("current-stage-index");
-  const currentDescription = document.getElementById("current-stage-description");
-  const currentNote = document.getElementById("current-stage-note");
-  const artifactStage = document.getElementById("artifact-stage");
+function renderArtifacts() {
   const artifactCount = document.getElementById("artifact-count");
   const artifactSummary = document.getElementById("artifact-summary");
   const artifactList = document.getElementById("artifact-list");
-
+  const phases = dashboardData?.phases || [];
   if (!phases.length) {
-    currentStatus.className = "status-pill neutral";
-    currentStatus.textContent = "等待运行";
-    currentIndex.textContent = "—";
-    currentName.textContent = "尚未开始";
-    currentDescription.textContent = "选择一条运行记录后，这里会显示当前阶段。";
-    currentNote.textContent = "尚无阶段事件";
-    artifactStage.textContent = "尚无当前阶段";
     artifactCount.textContent = "0 项";
     artifactSummary.textContent = "等待运行数据";
-    artifactList.innerHTML = '<div class="empty-message">暂无阶段产物记录。</div>';
+    artifactList.innerHTML = '<div class="empty-message">暂无全阶段产物记录。</div>';
     return;
   }
 
-  const labels = phases.map((phase) => phaseLabels[phase.phase] || phase.phase);
-  const isParallel = phases.length > 1;
-  const status = phases.some((phase) => phase.status === "running") ? "running" : (phases[0].status || "not_started");
-  currentStatus.className = `status-pill ${status}`;
-  currentStatus.textContent = isParallel ? "并行进行中" : statusLabel(status);
-  currentIndex.textContent = isParallel ? "并行" : `阶段 ${String(phaseOrder.indexOf(phases[0].phase) + 1).padStart(2, "0")}`;
-  currentName.textContent = labels.join(" / ");
-  currentDescription.textContent = isParallel ? "两个并行分支分别推进，任一分支触发回退时会在流程图和事件列表中同步标记。" : (phaseDescriptions[phases[0].phase] || "阶段详情");
-
-  const latestEvent = [...(dashboardData?.events || [])].reverse().find((event) => phases.some((phase) => phase.phase === event.phase));
-  currentNote.textContent = latestEvent ? `最近阶段事件：${formatTime(latestEvent.timestamp)} · ${latestEvent.event}` : "阶段产物状态来自共享状态与阶段检查点";
-  artifactStage.textContent = labels.join(" / ");
-
-  const outputs = phases.flatMap((phase) => [
-    ...(phase.present_outputs || []).map((key) => ({ key, state: "present", phase: phase.phase })),
-    ...(phase.missing_outputs || []).map((key) => ({ key, state: "missing", phase: phase.phase })),
-  ]);
-  const uniqueOutputs = [...new Map(outputs.map((item) => [`${item.phase}:${item.key}`, item])).values()];
+  const outputs = new Map();
+  for (const phase of phases) {
+    for (const key of phase.present_outputs || []) outputs.set(`${phase.phase}:${key}`, { key, state: "present", phase: phase.phase });
+    for (const key of phase.missing_outputs || []) {
+      const id = `${phase.phase}:${key}`;
+      if (!outputs.has(id)) outputs.set(id, { key, state: "missing", phase: phase.phase });
+    }
+  }
+  for (const artifact of dashboardData?.artifacts || dashboardData?.variables || []) {
+    if (!artifact.key) continue;
+    const id = `${artifact.phase || "unknown"}:${artifact.key}`;
+    if (!outputs.has(id)) outputs.set(id, { key: artifact.key, state: "present", phase: artifact.phase || "unknown" });
+  }
+  const phaseIndex = new Map(phaseOrder.map((phase, index) => [phase, index]));
+  const uniqueOutputs = [...outputs.values()].sort((a, b) => (phaseIndex.get(a.phase) ?? phaseOrder.length) - (phaseIndex.get(b.phase) ?? phaseOrder.length) || a.key.localeCompare(b.key));
   const presentCount = uniqueOutputs.filter((item) => item.state === "present").length;
   artifactCount.textContent = `${presentCount}/${uniqueOutputs.length} 项`;
-  artifactSummary.textContent = uniqueOutputs.length ? `${presentCount} 项已生成 · ${uniqueOutputs.length - presentCount} 项待生成` : "此阶段暂无定义的产物清单";
+  artifactSummary.textContent = uniqueOutputs.length ? `全阶段 · ${presentCount} 项已生成 · ${uniqueOutputs.length - presentCount} 项待生成` : "全阶段暂无定义的产物清单";
   artifactList.innerHTML = uniqueOutputs.length ? uniqueOutputs.map((item) => `<div class="artifact-row ${item.state}">
     <span class="artifact-indicator" aria-hidden="true"></span><div><div class="artifact-key">${escapeHtml(item.key)}</div><div class="artifact-status">${escapeHtml(phaseLabels[item.phase] || item.phase)} · ${item.state === "present" ? "已生成" : "待生成"}</div></div>
-  </div>`).join("") : '<div class="empty-message">当前阶段尚无产物快照；运行产生后将自动显示。</div>';
+  </div>`).join("") : '<div class="empty-message">全阶段尚无产物快照；运行产生后将自动显示。</div>';
 }
 
 function eventTitle(event) {
@@ -224,7 +177,7 @@ function renderDashboard() {
   const events = dashboardData?.events || [];
   const rollbacks = findRollbacks(events);
   renderPipeline(rollbacks);
-  renderCurrentAndArtifacts();
+  renderArtifacts();
   renderTriggers(rollbacks);
 }
 
