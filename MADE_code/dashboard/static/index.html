@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MADE · 部署全流程仪表盘</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261014-height-majority-v2" />
+    <link rel="stylesheet" href="/static/styles.css?v=20261014-inline-run-summary" />
   </head>
   <body>
     <main class="dashboard-shell">
@@ -22,19 +22,18 @@
         </div>
       </header>
 
-      <section class="run-context" aria-label="当前运行概况">
-        <div class="run-identity"><span class="context-label">当前运行</span><strong id="run-title">正在读取运行记录</strong></div>
-        <div class="context-metrics">
-          <div class="context-metric"><span class="context-label">整体状态</span><span id="run-status" class="status-pill neutral">读取中</span></div>
-          <div class="context-metric"><span class="context-label">模型服务</span><strong id="provider-badge">—</strong></div>
-          <div class="context-metric"><span class="context-label">容器</span><strong id="container-status">—</strong></div>
-          <div class="context-metric"><span class="context-label">最近更新</span><strong id="last-updated">—</strong></div>
-        </div>
-      </section>
-
       <section class="pipeline-panel" aria-labelledby="pipeline-title">
         <div class="section-heading">
           <h2 id="pipeline-title">总体流程</h2>
+          <section class="run-context" aria-label="当前运行概况">
+            <div class="run-identity"><span class="context-label">当前运行</span><strong id="run-title">正在读取运行记录</strong></div>
+            <div class="context-metrics">
+              <div class="context-metric"><span class="context-label">整体状态</span><span id="run-status" class="status-pill neutral">读取中</span></div>
+              <div class="context-metric"><span class="context-label">模型服务</span><strong id="provider-badge">—</strong></div>
+              <div class="context-metric"><span class="context-label">容器</span><strong id="container-status">—</strong></div>
+              <div class="context-metric"><span class="context-label">最近更新</span><strong id="last-updated">—</strong></div>
+            </div>
+          </section>
         </div>
         <div id="rollback-banner" class="rollback-banner" hidden></div>
         <div id="pipeline" class="pipeline" aria-label="MADE 部署阶段流程"></div>
