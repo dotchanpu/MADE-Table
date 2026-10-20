@@ -113,3 +113,25 @@ test("paper logo motion is subtle, layout-neutral, and disabled for reduced moti
   assert.match(css, /paper-logo:hover\s*\{\s*transform: scale\(1\.06\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*[^{}]*paper-logo[^{}]*\{\s*animation: none !important; transition: none !important;\s*transform: none !important; filter: none !important;/);
 });
+
+test("rollback history has an explicit accessible badge without changing current phase status", () => {
+  const { run } = harness();
+  run('dashboardData = {phases:[{phase:"weightresolve",status:"completed"}]}');
+  const markup = run('phaseNode("weightresolve", 2, [{from:"apiadaptation",to:"weightresolve"}])');
+  assert.match(markup, /phase-node completed has-rollback/);
+  assert.match(markup, /class="rollback-icon"/);
+  assert.match(markup, /class="rollback-label">Rollback/);
+  assert.match(markup, /<strong>×1<\/strong>/);
+  assert.match(markup, /Rollback history: 1 return to WeightResolve/);
+  assert.doesNotMatch(run('phaseNode("repoingest", 1, [])'), /rollback-count/);
+});
+
+test("rollback events expose both source and destination and retain expansion", () => {
+  const { run } = harness();
+  run('expandedRows.trigger.add("rollback-8")');
+  const markup = run('triggerRow({id:"rollback-8",event:"rollback",from:"apiadaptation",to:"weightresolve"})');
+  assert.match(markup, /Rollback · APIAdaptation → WeightResolve/);
+  assert.match(markup, /class="rollback-icon"/);
+  assert.match(markup, /aria-expanded="true"/);
+  assert.match(markup, /APIAdaptation rolls back to WeightResolve/);
+});

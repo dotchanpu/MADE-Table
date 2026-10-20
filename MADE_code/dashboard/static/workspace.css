@@ -415,8 +415,23 @@ tbody tr:hover { background: var(--panel-soft); }
 .monitor-layout .parallel-lane::before, .monitor-layout .parallel-lane .phase-node::before { display: none; }
 .monitor-layout .phase-connector { display: block; width: 24px; height: 76px; justify-self: stretch; background: none; color: var(--line-strong); overflow: visible; border-radius: 0; }
 .monitor-layout .phase-connector::after { display: none; }
-.monitor-layout .pipeline-footnote { display: flex; height: 14px; min-height: 0; padding: 0; font-size: 9px; line-height: 14px; }
-.monitor-layout .rollback-count { margin-left: 2px; font-size: 9px; }
+.monitor-layout .pipeline-footnote { display: flex; height: 18px; min-height: 0; padding: 0; font-size: 9px; line-height: 18px; }
+.monitor-layout .pipeline-footnote .progress-label { display: inline-flex; align-items: center; gap: 8px; }
+.rollback-icon { display: inline-block; flex: 0 0 14px; width: 14px; height: 14px; vertical-align: middle; }
+.monitor-layout .rollback-count, .monitor-layout .rollback-summary {
+  display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto;
+  height: 18px; padding: 0 4px; border: 1px solid #e7a6b1; border-radius: 4px;
+  background: #ffedf0; color: #9e2035; font: 600 10.5px/16px var(--font-sans);
+  white-space: nowrap; letter-spacing: 0;
+}
+.monitor-layout .rollback-count { margin-left: 2px; }
+.monitor-layout .rollback-count strong, .monitor-layout .rollback-summary strong { font-weight: 750; font-variant-numeric: tabular-nums; }
+.monitor-layout .rollback-count .rollback-label { display: none; }
+.monitor-layout .pipeline .phase-node.has-rollback { grid-template-rows: 18px 18px; }
+.monitor-layout .pipeline .phase-node.has-rollback .phase-state { gap: 3px; }
+@media (min-width: 1000px) {
+  .monitor-layout .rollback-count .rollback-label { display: inline; }
+}
 .monitor-layout > .detail-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(250px, 1fr); grid-template-rows: minmax(0, 1fr); align-items: stretch; min-height: 280px; gap: 14px; }
 .monitor-layout .detail-card { min-height: 0; padding: 14px 18px 10px; overflow: hidden; }
 .monitor-layout .card-heading { padding-bottom: 10px; }
@@ -527,6 +542,11 @@ tbody tr:hover { background: var(--panel-soft); }
 .monitor-layout .detail-card .artifact-row.missing .artifact-status { color: var(--amber); }
 .monitor-layout .detail-card .trigger-row:hover, .monitor-layout .detail-card .artifact-row:hover { background: var(--panel-soft); }
 .monitor-layout .detail-card .is-selected, .monitor-layout .detail-card .is-selected:hover { background: var(--terminal-selected); box-shadow: inset 2px 0 0 var(--blue); }
+.monitor-layout .detail-card .trigger-row.rollback { background: #fff6f7; border-bottom-color: #f3dadd; box-shadow: inset 3px 0 0 #b32640; }
+.monitor-layout .detail-card .trigger-row.rollback:hover, .monitor-layout .detail-card .trigger-row.rollback.is-selected { background: #ffedf0; }
+.monitor-layout .detail-card .trigger-row.rollback .trigger-marker { display: inline-flex; align-items: center; gap: 2px; width: fit-content; padding: 0 3px; border: 1px solid #e7a6b1; border-radius: 3px; background: #ffe7ed; color: #9e2035; font-weight: 650; font-size: 9px; line-height: 16px; }
+.monitor-layout .detail-card .trigger-row.rollback .trigger-marker .rollback-icon { flex-basis: 12px; width: 12px; height: 12px; }
+.monitor-layout .detail-card .trigger-row.rollback .trigger-title { color: #9e2035; font-weight: 650; }
 .monitor-layout .detail-card .trigger-row.is-selected .trigger-copy { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
 .monitor-layout .detail-card .artifact-row.is-selected .artifact-copy { flex-wrap: wrap; }
 .monitor-layout .detail-card .artifact-row.is-selected .artifact-key { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
@@ -534,6 +554,7 @@ tbody tr:hover { background: var(--panel-soft); }
 .monitor-layout .detail-card .trigger-row.is-selected .trigger-title-line, .monitor-layout .detail-card .trigger-row.is-selected .trigger-meta { display: block; }
 .monitor-layout .detail-card .trigger-row.is-selected .trigger-meta::before { content: none; }
 .monitor-layout .detail-card .trigger-row.is-selected .trigger-marker { color: var(--blue); }
+.monitor-layout .detail-card .trigger-row.rollback.is-selected .trigger-marker { color: #9e2035; }
 .monitor-layout .detail-card .artifact-row.is-selected .artifact-indicator { background: var(--blue); border-color: var(--blue); box-shadow: 0 0 0 2px #dce7ff; }
 .monitor-layout .detail-card .is-feedback { animation: terminal-feedback .8s ease-out; }
 .monitor-layout .detail-card .trigger-row.is-new { animation: terminal-arrive .7s ease-out both; }

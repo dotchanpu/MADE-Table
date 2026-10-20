@@ -127,15 +127,21 @@ function findRollbacks(events) {
   return [...rollbackRows, ...checkpointRollbacks].sort((a, b) => (Number(a.id.replace(/\D/g, "")) || 0) - (Number(b.id.replace(/\D/g, "")) || 0));
 }
 
+function rollbackIcon() {
+  return '<svg class="rollback-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 14-5-5 5-5M4 9h10a6 6 0 0 1 0 12h-2"/></svg>';
+}
+
 function phaseNode(name, index, rollbacks) {
   const phase = phaseState(name);
   const status = phase.status || "not_started";
   const rollbackCount = rollbacks.filter((item) => item.to === name).length;
+  const rollbackTitle = `Rollback history: ${rollbackCount} return${rollbackCount === 1 ? "" : "s"} to ${phaseLabels[name]}`;
+  const rollbackBadge = rollbackCount ? `<span class="rollback-count" title="${escapeHtml(rollbackTitle)}" aria-label="${escapeHtml(rollbackTitle)}">${rollbackIcon()}<span class="rollback-label">Rollback</span><strong>×${rollbackCount}</strong></span>` : "";
   const href = `/details?run=${encodeURIComponent(selectedRunId || "")}&phase=${encodeURIComponent(name)}#/state`;
-  return `<a class="phase-node ${escapeHtml(status)}" href="${escapeHtml(href)}" aria-label="${escapeHtml(phaseLabels[name])}: ${escapeHtml(statusLabel(status))}${rollbackCount ? `, rollbacks: ${rollbackCount} times` : ""}, view phase details">
+  return `<a class="phase-node ${escapeHtml(status)}${rollbackCount ? " has-rollback" : ""}" href="${escapeHtml(href)}" aria-label="${escapeHtml(phaseLabels[name])}: ${escapeHtml(statusLabel(status))}${rollbackCount ? `, ${rollbackCount} rollback${rollbackCount === 1 ? "" : "s"} in history` : ""}, view phase details">
     <div class="phase-index">${String(index).padStart(2, "0")}</div>
     <div class="phase-name">${escapeHtml(phaseLabels[name])}</div>
-    <div class="phase-state"><span class="phase-state-mark"></span>${escapeHtml(statusLabel(status))}${rollbackCount ? `<span class="rollback-count" title="Rollbacks: ${rollbackCount} times">↶ ${rollbackCount}</span>` : ""}</div>
+    <div class="phase-state"><span class="phase-state-mark"></span>${escapeHtml(statusLabel(status))}${rollbackBadge}</div>
   </a>`;
 }
 
@@ -165,7 +171,9 @@ function renderPipeline(rollbacks) {
 
   const completed = (dashboardData?.phases || []).filter((phase) => phase.status === "completed").length;
   const active = (dashboardData?.phases || []).filter((phase) => phase.status === "running").length;
-  document.getElementById("pipeline-progress").textContent = `${completed}/5 phases complete${active ? ` · ${active} running` : ""}${rollbacks.length ? ` · rollbacks: ${rollbacks.length} times` : ""}`;
+  const summary = `${completed}/5 phases complete${active ? ` · ${active} running` : ""}`;
+  const history = rollbacks.map((item) => item.from ? `${phaseLabels[item.from] || item.from} → ${phaseLabels[item.to] || item.to}` : `${phaseLabels[item.to] || item.to}: retry required`).join("; ");
+  document.getElementById("pipeline-progress").innerHTML = `<span>${escapeHtml(summary)}</span>${rollbacks.length ? `<span class="rollback-summary" title="${escapeHtml(`Rollback history: ${history}`)}">${rollbackIcon()}Rollback <strong>×${rollbacks.length}</strong></span>` : ""}`;
 }
 
 function artifactRow(item, updated = false) {
@@ -266,7 +274,7 @@ function upsertArtifact(event) {
 }
 
 function eventTitle(event) {
-  if (event.event === "rollback") return `Phase rollback · ${phaseLabels[event.to] || event.to}`;
+  if (event.event === "rollback") return `Rollback · ${event.from ? `${phaseLabels[event.from] || event.from} → ` : ""}${phaseLabels[event.to] || event.to}`;
   if (event.event === "llm_call") return `Model call · ${phaseLabels[event.phase] || event.phase || "System"}`;
   if (event.event === "gate_stats") return `Gate statistics · ${phaseLabels[event.phase] || event.phase || "System"}`;
   if (event.event === "gate_decision") return event.intervene ? "Consistency gate · intervention" : "Consistency gate · passed";
@@ -332,7 +340,7 @@ function triggerRow(event, isNew = false) {
   const tool = eventTool(event);
   const description = `${formatTime(event.timestamp)} [${category}] ${eventTitle(event)}${tool ? ` · ${tool.kind}: ${tool.name}` : ""} · ${eventMeta(event)}`;
   return `<div class="trigger-row ${event.event === "rollback" ? "rollback" : ""}${isNew ? " is-new" : ""}${expanded ? " is-selected" : ""}" data-event-id="${escapeHtml(event.id)}" data-kind="${category.toLowerCase()}" title="${escapeHtml(description)}" tabindex="0" role="button" aria-expanded="${expanded}">
-    <time class="trigger-time">${escapeHtml(formatTime(event.timestamp))}</time><span class="trigger-marker" title="${escapeHtml(event.event)}">[${category}]</span>
+    <time class="trigger-time">${escapeHtml(formatTime(event.timestamp))}</time><span class="trigger-marker" title="${escapeHtml(event.event)}">${event.event === "rollback" ? `${rollbackIcon()}<span>BACK</span>` : `[${category}]`}</span>
     <div class="trigger-copy"><div class="trigger-title-line"><div class="trigger-title">${escapeHtml(eventTitle(event))}</div>${toolBadge(event)}</div><div class="trigger-meta">${escapeHtml(eventMeta(event))}</div></div>
   </div>`;
 }

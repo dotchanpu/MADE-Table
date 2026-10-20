@@ -175,6 +175,8 @@ No decorative photography. Use the supplied paper logo from `static/paper-logo.p
 
 ## Components
 
+`rollback-history`: Keep current phase status distinct from historical returns. Use a high-contrast pale-red badge with a 14px undo icon, a numeric count, and the visible label Rollback where space permits. Narrow phase nodes retain the icon, count, and full title/accessible description; the pipeline footer always spells out Rollback. Rollback event rows use a pale-red surface and a 3px left marker, with the source → destination in the title. Preserve all inferred counts and event data. Do not increase the pipeline panel height or add continuous rollback animation.
+
 `phase-node`：总览点击后直达对应运行、对应阶段的共享状态详情；详情页点击更新当前阶段检查器。状态文字、编号、阶段名与回退次数保留。
 
 `event-row`：终端式输出使用 `{colors.terminal-canvas}` 背景、`{colors.terminal-ink}` 正文及 `{colors.terminal-muted}` 详情。日志为 11.5px JetBrains Mono、18px 行高，行上下各 2px 内边距，单行约 23px。时间、类型标记、标题、工具与附加数据按顺序连续排列；类型标记为 [LLM] / [TOOL] / [STATE] / [GATE] / [PHASE] / [DONE] 等。默认单行预览，点击或 Enter / Space 选中后展开完整文字，再次操作收起；完整内容也保留在 title 提示中。原始标题、工具、元数据和事件数量均保留。
