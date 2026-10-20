@@ -7,6 +7,7 @@ and credentials to the browser.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -20,8 +21,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request as UrlRequest, urlopen
 
-from fastapi import Body, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi import Body, FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import yaml
 
@@ -248,7 +249,7 @@ def _phase_state(
 
     # A phase is live when its event stream has activity after its most recent
     # phase_end. This also handles WeightResolve and DockerSetUp running in
-    # parallel: both remain visibly "运行中" until their own phase_end event.
+    # parallel: both remain visibly "Running" until their own phase_end event.
     active_phases = {
         name for name in PHASE_NAMES
         if any(
@@ -377,25 +378,25 @@ def _validate_test_target(value: Any, endpoint: Any) -> str:
     base = str(value or "").strip().rstrip("/")
     parsed = urlparse(base)
     if parsed.scheme not in {"http", "https"} or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
-        raise HTTPException(status_code=400, detail="测试地址只允许使用本机 localhost 服务")
+        raise HTTPException(status_code=400, detail="Test URLs must use a local localhost service")
     path = str(endpoint or "/predict_text")
     if path not in {"/predict_text", "/predict"}:
-        raise HTTPException(status_code=400, detail="不支持的测试接口")
+        raise HTTPException(status_code=400, detail="Unsupported test endpoint")
     return f"{base}{path}"
 
 
 def _inference_status(response_payload: Any) -> Dict[str, Any]:
     """Separate reachable API status from meaningful model inference status."""
     if not isinstance(response_payload, dict):
-        return {"status": "unknown", "message": "服务返回的不是 JSON 对象"}
+        return {"status": "unknown", "message": "The service did not return a JSON object"}
     if not response_payload.get("success"):
-        return {"status": "failed", "message": str(response_payload.get("error") or "推理失败")}
+        return {"status": "failed", "message": str(response_payload.get("error") or "Inference failed")}
     result = response_payload.get("result")
     if not isinstance(result, dict):
-        return {"status": "unknown", "message": "服务未返回结构化推理结果"}
+        return {"status": "unknown", "message": "The service returned no structured inference result"}
     model_status = result.get("model_status")
     if isinstance(model_status, dict) and model_status.get("weights_loaded") is False:
-        return {"status": "invalid", "message": "模型权重未成功加载"}
+        return {"status": "invalid", "message": "Model weights were not loaded successfully"}
     predictions = result.get("predictions_top5")
     tokens = [
         str(item.get("token_str") or "").strip().lower()
@@ -403,8 +404,8 @@ def _inference_status(response_payload: Any) -> Dict[str, Any]:
         if isinstance(item, dict) and str(item.get("token_str") or "").strip()
     ] if isinstance(predictions, list) else []
     if tokens and all(token in {"[unk]", "<unk>", "unk"} for token in tokens):
-        return {"status": "invalid", "message": "top-k 预测全部为 [UNK]"}
-    return {"status": "valid", "message": "模型已完成有效推理"}
+        return {"status": "invalid", "message": "All top-k predictions are [UNK]"}
+    return {"status": "valid", "message": "The model completed valid inference"}
 
 
 def _run_payload(run_dir: Path, event_limit: int = 240) -> Dict[str, Any]:
@@ -558,13 +559,56 @@ def run_detail(run_id: str, event_limit: int = Query(240, ge=10, le=1000)) -> Di
     return _run_payload(_run_dir(run_id), event_limit=event_limit)
 
 
+@app.get("/api/runs/{run_id}/events")
+async def run_events_stream(
+    run_id: str,
+    request: Request,
+    after_id: int = Query(0, ge=0),
+) -> StreamingResponse:
+    """Stream appended run events without reloading the dashboard snapshot."""
+    run_dir = _run_dir(run_id)
+    last_event_id = request.headers.get("last-event-id")
+    if last_event_id and last_event_id.isdigit():
+        after_id = max(after_id, int(last_event_id))
+
+    async def updates():
+        cursor = after_id
+        log_path = run_dir / "calls.jsonl"
+        observed_size = -1
+        last_heartbeat = time.monotonic()
+        while not await request.is_disconnected():
+            try:
+                current_size = log_path.stat().st_size if log_path.is_file() else 0
+                appended = []
+                if current_size != observed_size:
+                    observed_size = current_size
+                    appended = [event for event in _read_events(run_dir) if int(event.get("id") or 0) > cursor]
+            except OSError:
+                appended = []
+            for event in appended:
+                cursor = int(event["id"])
+                payload = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
+                yield f"id: {cursor}\nevent: update\ndata: {payload}\n\n"
+            now = time.monotonic()
+            if now - last_heartbeat >= 15:
+                yield ": keep-alive\n\n"
+                last_heartbeat = now
+            await asyncio.sleep(0.6)
+
+    return StreamingResponse(
+        updates(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.post("/api/runs/{run_id}/invoke")
 def invoke_service(run_id: str, body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     """Proxy one explicit local smoke-test request to the deployed API."""
     run_dir = _run_dir(run_id)
     text = str(body.get("text") or "").strip()
     if not text:
-        raise HTTPException(status_code=400, detail="请输入测试文本")
+        raise HTTPException(status_code=400, detail="Enter test text")
     target = _validate_test_target(body.get("target_url"), body.get("endpoint"))
 
     # The generated service contract uses file paths for raw_input fields.
@@ -573,21 +617,21 @@ def invoke_service(run_id: str, body: Dict[str, Any] = Body(...)) -> Dict[str, A
     run_payload = _run_payload(run_dir, event_limit=1)
     repo_root_value = run_payload.get("service", {}).get("repo_root")
     if not repo_root_value:
-        raise HTTPException(status_code=409, detail="当前运行还没有可写入的部署仓库")
+        raise HTTPException(status_code=409, detail="This run has no writable deployment repository")
     repo_root = Path(str(repo_root_value)).resolve()
     if not repo_root.is_dir():
-        raise HTTPException(status_code=409, detail="部署仓库目录不可用")
+        raise HTTPException(status_code=409, detail="The deployment repository directory is unavailable")
     token = uuid.uuid4().hex
     host_input = repo_root / ".autodeploy" / "dashboard_inputs" / f"{token}.txt"
     try:
         host_input.parent.mkdir(parents=True, exist_ok=True)
         host_input.write_text(text, encoding="utf-8")
     except OSError as error:
-        raise HTTPException(status_code=500, detail=f"无法暂存测试输入: {error}") from error
+        raise HTTPException(status_code=500, detail=f"Unable to stage test input: {error}") from error
     try:
         relative_input = host_input.relative_to(repo_root)
     except ValueError as error:
-        raise HTTPException(status_code=500, detail="测试输入路径不在部署仓库内") from error
+        raise HTTPException(status_code=500, detail="Test input path is outside the deployment repository") from error
     container_input = _docker_work_dir() / relative_input
     request_payload = {"inputs": {"text": str(container_input)}}
     request = UrlRequest(

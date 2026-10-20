@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MADE · 流水线动效预览</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261014-compact-list-spacing" />
+    <title>MADE · Pipeline motion preview</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20261018-smoother-motion" />
+    <link rel="stylesheet" href="/static/workspace.css?v=20261020-english-2" />
     <style>
       .motion-demo-shell { max-width: 1600px; margin: 0 auto; }
       .motion-demo-shell .back-button { color: inherit; text-decoration: none; }
@@ -19,51 +20,51 @@
     <main class="dashboard-shell motion-demo-shell">
       <header class="dashboard-header">
         <div class="header-leading">
-          <a class="back-button" href="/"><span aria-hidden="true">←</span>返回仪表盘</a>
+          <a class="back-button" href="/"><span aria-hidden="true">←</span>Back to dashboard</a>
           <div class="header-title">
             <div class="eyebrow">MADE · MOTION PREVIEW</div>
-            <h1>部署流水线动效预览</h1>
+            <h1>Deployment pipeline motion preview</h1>
           </div>
         </div>
-        <div class="header-controls"><span class="demo-tag">模拟运行 · 不调用 API</span></div>
+        <div class="header-controls"><span class="demo-tag">Simulated run · no API calls</span></div>
       </header>
 
-      <section class="run-context" aria-label="演示说明">
-        <div class="run-identity"><span class="context-label">预览状态</span><strong>WeightResolve 与 DockerSetUp 正在并行运行</strong></div>
+      <section class="run-context" aria-label="Demo information">
+        <div class="run-identity"><span class="context-label">Preview status</span><strong>WeightResolve and DockerSetUp are running in parallel</strong></div>
         <div class="context-metrics">
-          <div class="context-metric"><span class="context-label">演示类型</span><strong>纯前端动效</strong></div>
-          <div class="context-metric"><span class="context-label">运行数据</span><strong>未连接真实运行</strong></div>
+          <div class="context-metric"><span class="context-label">Demo type</span><strong>Frontend animation only</strong></div>
+          <div class="context-metric"><span class="context-label">Run data</span><strong>Not connected to a live run</strong></div>
         </div>
       </section>
 
       <section class="panel pipeline-panel" aria-labelledby="pipeline-title">
         <div class="section-heading">
-          <div><div class="eyebrow">LIVE ORCHESTRATION</div><h2 id="pipeline-title">总体流程</h2></div>
-          <div class="legend" aria-label="阶段状态图例">
-            <span><i class="legend-mark completed"></i>成功</span>
-            <span><i class="legend-mark running"></i>进行中</span>
-            <span><i class="legend-mark not_started"></i>未开始</span>
+          <div><div class="eyebrow">LIVE ORCHESTRATION</div><h2 id="pipeline-title">Pipeline</h2></div>
+          <div class="legend" aria-label="Phase status legend">
+            <span><i class="legend-mark completed"></i>Completed</span>
+            <span><i class="legend-mark running"></i>Running</span>
+            <span><i class="legend-mark not_started"></i>Pending</span>
           </div>
         </div>
 
-        <div class="pipeline" aria-label="模拟部署阶段流程">
-          <div class="phase-node completed"><div class="phase-index">01</div><div class="phase-name">RepoIngest</div><div class="phase-state"><span class="phase-state-mark"></span>已完成</div></div>
+        <div class="pipeline" aria-label="Simulated deployment pipeline">
+          <div class="phase-node completed"><div class="phase-index">01</div><div class="phase-name">RepoIngest</div><div class="phase-state"><span class="phase-state-mark"></span>Completed</div></div>
           <div class="phase-connector" aria-hidden="true"></div>
-          <div class="parallel-group" aria-label="WeightResolve 与 DockerSetUp 并行阶段">
-            <div class="parallel-caption"><span>并行执行</span></div>
+          <div class="parallel-group" aria-label="WeightResolve and DockerSetUp parallel phases">
+            <div class="parallel-caption"><span>Parallel</span></div>
             <div class="parallel-lane">
-              <div class="phase-node running"><div class="phase-index">02</div><div class="phase-name">WeightResolve</div><div class="phase-state"><span class="phase-state-mark"></span>运行中</div></div>
-              <div class="phase-node running"><div class="phase-index">03</div><div class="phase-name">DockerSetUp</div><div class="phase-state"><span class="phase-state-mark"></span>运行中</div></div>
+              <div class="phase-node running"><div class="phase-index">02</div><div class="phase-name">WeightResolve</div><div class="phase-state"><span class="phase-state-mark"></span>Running</div></div>
+              <div class="phase-node running"><div class="phase-index">03</div><div class="phase-name">DockerSetUp</div><div class="phase-state"><span class="phase-state-mark"></span>Running</div></div>
             </div>
           </div>
           <div class="phase-connector" aria-hidden="true"></div>
-          <div class="phase-node not_started"><div class="phase-index">04</div><div class="phase-name">APIAdaptation</div><div class="phase-state"><span class="phase-state-mark"></span>未开始</div></div>
+          <div class="phase-node not_started"><div class="phase-index">04</div><div class="phase-name">APIAdaptation</div><div class="phase-state"><span class="phase-state-mark"></span>Pending</div></div>
           <div class="phase-connector" aria-hidden="true"></div>
-          <div class="phase-node not_started"><div class="phase-index">05</div><div class="phase-name">ServiceDelivery</div><div class="phase-state"><span class="phase-state-mark"></span>未开始</div></div>
+          <div class="phase-node not_started"><div class="phase-index">05</div><div class="phase-name">ServiceDelivery</div><div class="phase-state"><span class="phase-state-mark"></span>Pending</div></div>
         </div>
 
-        <div class="pipeline-footnote"><span class="live-indicator"></span><span>蓝色阶段卡片呼吸高亮 · 状态点脉动</span><span class="progress-label">模拟运行中</span></div>
-        <p class="demo-explainer"><strong>这是动效样例，不是真实部署记录。</strong>动效只应用于“运行中”阶段；系统或浏览器设置了“减少动态效果”时，动画会自动关闭。</p>
+        <div class="pipeline-footnote"><span class="live-indicator"></span><span>Running cards glow softly · status indicators pulse</span><span class="progress-label">Simulation running</span></div>
+        <p class="demo-explainer"><strong>This is an animation sample, not a real deployment record.</strong>Animation applies only to running phases and respects reduced-motion preferences.</p>
       </section>
     </main>
   </body>

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MADE · Live activity preview</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20261018-smoother-motion" />
+    <link rel="stylesheet" href="/static/workspace.css?v=20261020-english-2" />
+    <style>
+      .activity-demo { max-width: 1500px; margin: 0 auto; }
+      .activity-demo .back-button { text-decoration: none; }
+      .demo-controls { display: flex; align-items: center; gap: 8px; }
+      .demo-controls button { min-height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius-control); background: #fff; color: var(--ink); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+      .demo-controls button:hover { border-color: var(--line-strong); background: var(--panel-soft); }
+      .demo-controls .primary { border-color: #0969da; background: #0969da; color: #fff; }
+      .demo-controls .primary:hover { background: #0550ae; }
+      .demo-note { margin: 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: var(--radius-card); color: var(--muted); font-size: 12px; line-height: 1.6; }
+      .demo-note strong { color: var(--ink); }
+      .demo-columns { display: grid; grid-template-columns: minmax(280px, .85fr) minmax(420px, 1.15fr); gap: 14px; min-height: 0; }
+      .demo-panel { display: flex; flex-direction: column; min-height: 480px; padding: 15px 17px; }
+      .demo-panel .card-heading { padding-bottom: 10px; }
+      .demo-panel .card-heading h2 { margin: 2px 0 0; }
+      .demo-list { flex: 1; min-height: 0; max-height: min(58vh, 570px); overflow: auto; overscroll-behavior: contain; scroll-behavior: smooth; }
+      .demo-event { display: grid; grid-template-columns: 58px 10px minmax(0, 1fr); gap: 9px; padding: 12px 0; border-bottom: 1px solid #eaeef2; }
+      .demo-time { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .demo-dot { position: relative; display: flex; justify-content: center; }
+      .demo-dot::before { position: absolute; top: 0; bottom: -12px; width: 1px; background: var(--line); content: ""; }
+      .demo-dot::after { position: relative; z-index: 1; width: 7px; height: 7px; margin-top: 3px; border-radius: 50%; background: var(--blue); content: ""; }
+      .demo-event-copy { min-width: 0; }
+      .demo-event-title { font-size: 12px; font-weight: 700; line-height: 1.4; }
+      .demo-event-meta { margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+      .demo-tool { display: inline-flex; margin-left: 6px; padding: 2px 5px; border: 1px solid #d1d9e0; border-radius: 4px; background: #f6f8fa; color: #424a53; font-size: 9px; font-weight: 600; vertical-align: 1px; }
+      .demo-artifact { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 48px; border-bottom: 1px solid #eaeef2; }
+      .demo-artifact-mark { width: 8px; height: 8px; background: var(--green); }
+      .demo-artifact-name { min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+      .demo-artifact-stage { margin-top: 2px; color: var(--muted); font-size: 9px; }
+      .demo-artifact-state { color: var(--muted); font-size: 9px; white-space: nowrap; }
+      .demo-artifact.is-updated { animation: artifact-pulse 1.6s cubic-bezier(.4, 0, .2, 1) both; }
+      .demo-event.is-new { animation: event-arrive 820ms cubic-bezier(.16, 1, .3, 1) both; }
+      @keyframes event-arrive { from { opacity: 0; transform: translateY(-7px); background: #ddf4ff; } to { opacity: 1; transform: translateY(0); background: transparent; } }
+      @keyframes artifact-pulse { 0% { background: #ddf4ff; } 36% { background: #f1f8ff; } 100% { background: transparent; } }
+      @media (prefers-reduced-motion: reduce) { .demo-event.is-new, .demo-artifact.is-updated { animation: none; } }
+      @media (max-width: 760px) {
+        .activity-demo { gap: 10px; }
+        .activity-demo .dashboard-header { align-items: flex-start; flex-direction: column; }
+        .activity-demo .header-leading { align-items: flex-start; }
+        .activity-demo .header-controls { width: 100%; flex-wrap: wrap; }
+        .demo-controls { flex-wrap: wrap; }
+        .demo-columns { grid-template-columns: minmax(0, 1fr); }
+        .demo-panel { min-height: 320px; }
+        .demo-list { max-height: 42vh; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="dashboard-shell activity-demo">
+      <header class="dashboard-header">
+        <div class="header-leading">
+          <a class="back-button" href="/"><span aria-hidden="true">←</span>Dashboard</a>
+          <div class="header-title"><div class="eyebrow">MADE · LIVE ACTIVITY PREVIEW</div><h1>Live activity preview</h1></div>
+        </div>
+        <div class="header-controls demo-controls">
+          <button id="event-button" type="button">Add event</button>
+          <button id="artifact-button" class="primary" type="button">Update artifact</button>
+          <button id="auto-button" type="button">Auto play</button>
+          <button id="reset-button" type="button">Reset</button>
+        </div>
+      </header>
+
+      <p class="demo-note"><strong>Frontend demo only. No deployment API calls or changes to run data.</strong> Add an event to preview its arrival. Update an artifact to highlight and scroll to it. Auto play alternates both actions.</p>
+
+      <section class="demo-columns" aria-label="Live animation preview">
+        <article class="panel demo-panel">
+          <div class="card-heading"><div><div class="eyebrow">TRIGGER EVENTS</div><h2>Live events</h2></div><span id="event-count" class="count-label"></span></div>
+          <div id="demo-events" class="demo-list" aria-live="polite"></div>
+        </article>
+        <article class="panel demo-panel">
+          <div class="card-heading"><div><div class="eyebrow">ARTIFACT STATUS</div><h2>All-phase artifacts</h2></div><span id="artifact-count" class="count-label"></span></div>
+          <div id="demo-artifacts" class="demo-list" aria-live="polite"></div>
+        </article>
+      </section>
+      <footer class="dashboard-footer"><span>All demo data is fictional</span><span>Animations respect reduced-motion preferences</span></footer>
+    </main>
+    <script>
+      const initialEvents = [
+        ["Phase complete · RepoIngest", "Repository structure and input files resolved", "inspect_repository"],
+        ["Tool complete", "WeightResolve · 4.82 s", "resolve_model_weights"],
+        ["Model call · DockerSetUp", "deepseek-chat · 1,248 tokens · 2.1 s", "—"],
+        ["Phase complete · DockerSetUp", "Image build complete", "build_container_image"],
+      ];
+      const initialArtifacts = [
+        ["repo_root", "RepoIngest"], ["cleaned_readmes_path", "RepoIngest"], ["pdf_content", "RepoIngest"],
+        ["downloaded_weight_path", "WeightResolve"], ["hf_candidates", "WeightResolve"], ["weights_dir", "WeightResolve"],
+        ["container_id", "DockerSetUp"], ["image_name", "DockerSetUp"], ["runtime_port_mapping", "DockerSetUp"],
+        ["input_schema", "APIAdaptation"], ["entry_point_path", "APIAdaptation"], ["io_contract", "APIAdaptation"],
+        ["api_pid", "ServiceDelivery"], ["smoke_test_result", "ServiceDelivery"], ["api_documentation_path", "ServiceDelivery"],
+      ];
+      const nextEvents = [
+        ["Model call · APIAdaptation", "deepseek-chat · 986 tokens · 1.7 s", "adapt_api_contract"],
+        ["Artifact produced · input_schema", "APIAdaptation · Synced to shared state", "adapt_api_contract"],
+        ["Tool complete", "ServiceDelivery · 0.38 s", "run_smoke_test"],
+        ["Phase complete · ServiceDelivery", "Deployment and API tests complete", "deliver_service"],
+      ];
+      const eventsList = document.getElementById("demo-events");
+      const artifactsList = document.getElementById("demo-artifacts");
+      let eventIndex = 0;
+      let artifactIndex = 7;
+      let timer = null;
+
+      function eventNode([title, meta, tool], fresh = false) {
+        const row = document.createElement("div");
+        row.className = `demo-event${fresh ? " is-new" : ""}`;
+        const time = document.createElement("time");
+        time.className = "demo-time";
+        time.textContent = fresh ? new Date().toLocaleTimeString("en-GB", { hour12: false }) : "09:41:12";
+        const dot = document.createElement("span"); dot.className = "demo-dot"; dot.setAttribute("aria-hidden", "true");
+        const copy = document.createElement("div"); copy.className = "demo-event-copy";
+        const heading = document.createElement("div"); heading.className = "demo-event-title"; heading.textContent = title;
+        const badge = document.createElement("span"); badge.className = "demo-tool"; badge.textContent = tool;
+        heading.append(badge);
+        const detail = document.createElement("div"); detail.className = "demo-event-meta"; detail.textContent = meta;
+        copy.append(heading, detail); row.append(time, dot, copy);
+        return row;
+      }
+
+      function artifactNode([name, phase]) {
+        const row = document.createElement("div"); row.className = "demo-artifact"; row.dataset.name = name;
+        const mark = document.createElement("span"); mark.className = "demo-artifact-mark"; mark.setAttribute("aria-hidden", "true");
+        const copy = document.createElement("div");
+        const title = document.createElement("div"); title.className = "demo-artifact-name"; title.textContent = name;
+        const stage = document.createElement("div"); stage.className = "demo-artifact-stage"; stage.textContent = phase;
+        copy.append(title, stage);
+        const state = document.createElement("span"); state.className = "demo-artifact-state"; state.textContent = "Ready";
+        row.append(mark, copy, state);
+        return row;
+      }
+
+      function addEvent() {
+        const item = nextEvents[eventIndex++ % nextEvents.length];
+        eventsList.prepend(eventNode(item, true));
+        document.getElementById("event-count").textContent = `${eventsList.children.length} events · newest first`;
+      }
+
+      function updateArtifact() {
+        const rows = artifactsList.querySelectorAll(".demo-artifact");
+        const target = rows[artifactIndex % rows.length];
+        artifactIndex += 3;
+        target.classList.remove("is-updated");
+        void target.offsetWidth;
+        target.classList.add("is-updated");
+        target.querySelector(".demo-artifact-state").textContent = "Just updated";
+        const listRect = artifactsList.getBoundingClientRect();
+        const rowRect = target.getBoundingClientRect();
+        let top = artifactsList.scrollTop;
+        if (rowRect.top < listRect.top) top += rowRect.top - listRect.top;
+        else if (rowRect.bottom > listRect.bottom) top += rowRect.bottom - listRect.bottom;
+        artifactsList.scrollTo({ top, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      }
+
+      function setAuto() {
+        const button = document.getElementById("auto-button");
+        if (timer) { clearInterval(timer); timer = null; button.textContent = "Auto play"; return; }
+        button.textContent = "Stop";
+        let run = 0;
+        timer = setInterval(() => { run++ % 2 ? addEvent() : updateArtifact(); }, 1250);
+      }
+
+      function reset() {
+        if (timer) { clearInterval(timer); timer = null; }
+        document.getElementById("auto-button").textContent = "Auto play";
+        eventsList.replaceChildren(...initialEvents.map((event) => eventNode(event)));
+        artifactsList.replaceChildren(...initialArtifacts.map(artifactNode));
+        artifactsList.scrollTop = 0; eventIndex = 0; artifactIndex = 7;
+        document.getElementById("event-count").textContent = `${initialEvents.length} events · newest first`;
+        document.getElementById("artifact-count").textContent = `${initialArtifacts.length} artifacts · all phases`;
+      }
+
+      document.getElementById("event-button").addEventListener("click", addEvent);
+      document.getElementById("artifact-button").addEventListener("click", updateArtifact);
+      document.getElementById("auto-button").addEventListener("click", setAuto);
+      document.getElementById("reset-button").addEventListener("click", reset);
+      reset();
+    </script>
+  </body>
+</html>

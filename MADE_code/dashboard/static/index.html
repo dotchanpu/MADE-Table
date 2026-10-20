@@ -1,61 +1,63 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MADE · 部署全流程仪表盘</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261014-compact-list-spacing" />
+    <title>MADE · Deployment Monitor</title>
+    <link rel="icon" type="image/png" href="/static/paper-logo.png" />
+    <link rel="stylesheet" href="/static/styles.css?v=20261018-smoother-motion" />
+    <link rel="stylesheet" href="/static/workspace.css?v=20261020-logo-motion" />
   </head>
   <body>
-    <main class="dashboard-shell">
+    <main class="dashboard-shell monitor-layout">
       <header class="dashboard-header">
         <div class="header-leading">
-          <button id="back-button" class="back-button" type="button" aria-label="返回上一页"><span aria-hidden="true">←</span>返回</button>
+          <img class="dashboard-brand paper-logo" src="/static/paper-logo.png" alt="MADE paper logo" width="52" height="38" />
           <div class="header-title">
             <div class="eyebrow">MADE · MODEL DEPLOYMENT ENGINE</div>
-            <h1>部署全流程仪表盘</h1>
+            <h1>Deployment Monitor</h1>
           </div>
         </div>
         <div class="header-controls">
-          <label class="run-picker"><span>运行记录</span><select id="run-select" aria-label="选择运行记录"><option>读取中…</option></select></label>
-          <button id="refresh-button" class="refresh-button" type="button">刷新</button>
+          <label class="run-picker"><span>Runs</span><select id="run-select" aria-label="Select a run"><option>Loading…</option></select></label>
+          <button id="back-button" class="back-button" type="button">Details<span aria-hidden="true">↗</span></button>
+          <button id="refresh-button" class="refresh-button" type="button">Refresh</button>
         </div>
       </header>
 
-      <section class="pipeline-panel" aria-labelledby="pipeline-title">
-        <div class="section-heading">
-          <h2 id="pipeline-title">总体流程</h2>
-          <section class="run-context" aria-label="当前运行概况">
-            <div class="run-identity"><span class="context-label">当前运行</span><strong id="run-title">正在读取运行记录</strong></div>
+      <section class="run-context" aria-label="Current run summary">
+            <div class="run-identity"><span class="context-label">Current run</span><strong id="run-title">Loading run</strong></div>
             <div class="context-metrics">
-              <div class="context-metric"><span class="context-label">整体状态</span><span id="run-status" class="status-pill neutral">读取中</span></div>
-              <div class="context-metric"><span class="context-label">运行时长</span><strong id="run-duration">—</strong></div>
-              <div class="context-metric"><span class="context-label">Token 消耗</span><strong id="run-tokens">—</strong></div>
-              <div class="context-metric"><span class="context-label">模型服务</span><strong id="provider-badge">—</strong></div>
-              <div class="context-metric"><span class="context-label">容器</span><strong id="container-status">—</strong></div>
-              <div class="context-metric"><span class="context-label">最近更新</span><strong id="last-updated">—</strong></div>
+              <div class="context-metric"><span class="context-label">Status</span><span id="run-status" class="status-pill neutral">Loading</span></div>
+              <div class="context-metric live-metric"><span class="context-label">Elapsed<i class="metric-live-dot" aria-hidden="true"></i></span><strong id="run-duration">—</strong></div>
+              <div class="context-metric live-metric"><span class="context-label">Tokens<i class="metric-live-dot" aria-hidden="true"></i></span><strong id="run-tokens" aria-live="polite" aria-atomic="true">—</strong></div>
+              <div class="context-metric"><span class="context-label">Provider</span><strong id="provider-badge">—</strong></div>
+              <div class="context-metric"><span class="context-label">Container</span><strong id="container-status">—</strong></div>
+              <div class="context-metric"><span class="context-label">Updated</span><strong id="last-updated">—</strong></div>
             </div>
-          </section>
-        </div>
-        <div id="pipeline" class="pipeline" aria-label="MADE 部署阶段流程"></div>
-        <div class="pipeline-footnote"><span id="pipeline-progress" class="progress-label">等待运行数据</span></div>
       </section>
 
-      <section class="detail-grid" aria-label="全阶段产物状态与触发事件">
-        <article class="panel detail-card artifact-card">
-          <div class="card-heading"><div><div class="eyebrow">ARTIFACT STATUS</div><h2>产物状态</h2></div><span id="artifact-count" class="count-label">0 项</span></div>
-          <div id="artifact-summary" class="artifact-summary"></div>
-          <div id="artifact-list" class="artifact-list"><div class="empty-message">全阶段产物状态将在此显示。</div></div>
-        </article>
+      <section class="panel pipeline-panel" aria-labelledby="pipeline-title">
+        <div class="section-heading"><div><div class="eyebrow">DEPLOYMENT PIPELINE</div><h2 id="pipeline-title">Pipeline</h2></div><span class="pipeline-hint">Select a phase for details <span aria-hidden="true">↗</span></span></div>
+        <div class="pipeline-viewport"><div id="pipeline" class="pipeline" aria-label="MADE deployment pipeline"></div></div>
+        <div class="pipeline-footnote"><span id="pipeline-progress" class="progress-label">Waiting for run data</span></div>
+      </section>
 
+      <section class="detail-grid" aria-label="Artifact status and trigger events across all phases">
         <article class="panel detail-card triggers-card">
-          <div class="card-heading"><div><div class="eyebrow">TRIGGER EVENTS</div><h2>触发事件</h2></div><span id="trigger-count" class="count-label">0 条</span></div>
-          <div id="trigger-events" class="trigger-events"><div class="empty-message">正在读取事件记录。</div></div>
+          <div class="card-heading"><div><div class="eyebrow">TRIGGER EVENTS</div><h2>Trigger events</h2></div><div class="terminal-actions"><button id="expand-trigger" class="terminal-help" type="button" aria-controls="trigger-events" aria-expanded="false" disabled>Expand all</button><span id="trigger-count" class="count-label">0 events</span></div></div>
+          <div id="trigger-events" class="trigger-events"><div class="empty-message">Loading events.</div></div>
+        </article>
+
+        <article class="panel detail-card artifact-card">
+          <div class="card-heading"><div><div class="eyebrow">ARTIFACT STATUS</div><h2>Artifact status</h2></div><div class="terminal-actions"><button id="expand-artifact" class="terminal-help" type="button" aria-controls="artifact-list" aria-expanded="false" disabled>Expand all</button><span id="artifact-count" class="count-label">0 artifacts</span></div></div>
+          <div id="artifact-summary" class="artifact-summary"></div>
+          <div id="artifact-list" class="artifact-list"><div class="empty-message">Artifact status will appear here.</div></div>
         </article>
       </section>
 
-      <footer class="dashboard-footer"><span>MADE 本地部署监控</span><span>事件来源：流水线运行日志</span></footer>
+      <footer class="dashboard-footer"><span>MADE local monitor · Source: pipeline logs</span><a href="/static/activity-demo.html">Activity demo ↗</a></footer>
     </main>
-    <script src="/static/app.js?v=20261014-inline-tool-tags"></script>
+    <script src="/static/app.js?v=20261020-english-2"></script>
   </body>
 </html>
